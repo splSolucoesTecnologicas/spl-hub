@@ -1,0 +1,29 @@
+# Liga os serviços na rede do Traefik do Dokploy e tira as portas publicadas no host.
+# As labels de roteamento ficam no compose principal.
+services:
+  db:
+    ports: !reset []
+    networks: [interna]
+  api:
+    ports: !reset []
+    networks: [interna, dokploy-network]
+    environment:
+      CORS_ORIGINS: https://splsolucoes.com
+      SEED_EXEMPLO: "false"
+  hub:
+    ports: !reset []
+    networks: [dokploy-network]
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: https://splsolucoes.com/api
+  landing:
+    ports: !reset []
+    networks: [dokploy-network]
+    build:
+      args:
+        VITE_API_URL: https://splsolucoes.com/api
+
+networks:
+  interna:
+  dokploy-network:
+    external: true
