@@ -20,11 +20,15 @@ function chavePrivadaGithub(): string | undefined {
     try {
       return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
     } catch (erro) {
-      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): tentando GITHUB_APP_PRIVATE_KEY em seguida.`, erro);
+      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): tentando as outras formas em seguida.`, erro);
     }
   }
-  // Aceita a chave numa única linha, com \n literal no lugar das quebras reais —
-  // mais robusto que depender de como cada painel trata variável multi-linha.
+  // Base64 do .pem inteiro — formato mais robusto pra editores de env var que não
+  // lidam bem com valores multi-linha ou muito longos com caracteres especiais.
+  if (process.env.GITHUB_APP_PRIVATE_KEY_BASE64) {
+    return Buffer.from(process.env.GITHUB_APP_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+  }
+  // Aceita a chave numa única linha, com \n literal no lugar das quebras reais.
   return process.env.GITHUB_APP_PRIVATE_KEY?.includes('\\n')
     ? process.env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n')
     : process.env.GITHUB_APP_PRIVATE_KEY;
@@ -38,6 +42,7 @@ function githubDe(): GitHubProjetos {
     + `GITHUB_APP_INSTALLATION_ID=${process.env.GITHUB_APP_INSTALLATION_ID ? 'presente' : 'ausente'} `
     + `GITHUB_APP_PRIVATE_KEY_PATH=${process.env.GITHUB_APP_PRIVATE_KEY_PATH ? 'presente' : 'ausente'} `
     + `GITHUB_APP_PRIVATE_KEY=${process.env.GITHUB_APP_PRIVATE_KEY ? `presente(${process.env.GITHUB_APP_PRIVATE_KEY.length} chars)` : 'ausente'} `
+    + `GITHUB_APP_PRIVATE_KEY_BASE64=${process.env.GITHUB_APP_PRIVATE_KEY_BASE64 ? `presente(${process.env.GITHUB_APP_PRIVATE_KEY_BASE64.length} chars)` : 'ausente'} `
     + `chavePrivadaResolvida=${chavePrivada ? `${chavePrivada.length} chars` : 'nenhuma'}`,
   );
   if (process.env.GITHUB_ADAPTER === 'app' && process.env.GITHUB_APP_ID && chavePrivada && process.env.GITHUB_APP_INSTALLATION_ID) {
