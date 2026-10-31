@@ -143,6 +143,12 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .cartao { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 10px; cursor: grab; }
 .cartao b { display: block; font-size: 14px; margin-bottom: 8px; }
 .cartao .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; color: var(--grey); font-size: 12px; }
+.chip.grey { background: #1c201d; color: var(--grey); }
+.chip-github { display: inline-flex; align-items: center; gap: 4px; background: #1c201d; color: var(--grey); border-radius: 999px; padding: 3px 7px; font-size: 10px; line-height: 1.5; font-weight: 700; }
+.chip-github:hover { color: var(--off); }
+.cartao-acoes { display: inline-flex; gap: 4px; margin-left: auto; opacity: 0; transition: opacity .12s ease; }
+.cartao:hover .cartao-acoes, .cartao:focus-within .cartao-acoes { opacity: 1; }
+.cartao-acoes .btn { padding: 3px 9px; font-size: 11px; }
 .atrasada { color: var(--red); font-weight: 700; }
 .nova { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .nova input, .campo, select.campo, textarea.campo { width: 100%; background: #0c0e0c; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
