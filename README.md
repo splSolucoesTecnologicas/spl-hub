@@ -2,11 +2,11 @@
 
 Monorepo da [SPL Soluções Tecnológicas](https://splsolucoes.com). O repositório no GitHub é `splSolucoesTecnologicas/spl-hub` (o nome antigo `spl-landing-page` redireciona).
 
-| Pasta | O que é | Domínio |
+| Pasta | O que é | Onde fica |
 |---|---|---|
-| `apps/landing` | Site institucional (Vite, o mesmo de produção) | splsolucoes.com |
-| `apps/hub` | Hub interno (Next.js) | hub.splsolucoes.com |
-| `apps/api` | API do hub (Fastify 5, hexagonal) | api atrás do Traefik |
+| `apps/landing` | Site institucional (Vite). Hoje no GitHub Pages | `splsolucoes.com` |
+| `apps/hub` | Hub interno (Next.js, `basePath` `/hub`) | `splsolucoes.com/hub` |
+| `apps/api` | API do hub (Fastify 5, hexagonal) | `splsolucoes.com/api` |
 | `packages/contracts` | Zod + OpenAPI compartilhados | — |
 
 A arquitetura da API está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md). Identidade: verde `#00FF66`, preto `#050605`, Sora nos títulos e Inter no corpo.
@@ -47,9 +47,9 @@ Hoje a landing de produção continua no **GitHub Pages** (workflow `.github/wor
 
 O blog é buscado **no build** (`apps/landing/scripts/buscar-noticias.mjs`). Sem notícia publicada, ou se a API não responde, a landing não mostra seção, links nem `/blog`. Com pelo menos uma notícia, o rebuild coloca tudo no ar. O workflow também escuta `workflow_dispatch` e `repository_dispatch` `blog-publicado`. A API só pede esse rebuild se `PAGES_DISPATCH_TOKEN` e `PAGES_DISPATCH_REPOSITORIO` existirem.
 
-### Alvo: um domínio no Dokploy (Traefik)
+### Dokploy (Traefik), um arquivo de compose
 
-Quando o DNS apontar para o servidor, o mesmo host divide os três apps. O compose **não** dispara esse deploy; só deixa os Dockerfiles e as labels prontos.
+O caminho do compose no Dokploy é só `docker-compose.prod.yml`. Ele não publica porta no host: o Traefik da rede `dokploy-network` encaminha o domínio.
 
 | Caminho | Serviço | Porta interna |
 |---|---|---|
@@ -57,23 +57,31 @@ Quando o DNS apontar para o servidor, o mesmo host divide os três apps. O compo
 | `splsolucoes.com/hub` | `apps/hub` (Next, `basePath: '/hub'`) | 3000 |
 | `splsolucoes.com/api` | `apps/api` (o Traefik remove o prefixo `/api`) | 3333 |
 
-A sessão do hub é um cookie `spl_sessao` com `Path=/hub` (e `Secure` só em HTTPS). A landing em `/` não recebe esse cookie. Chamadas à API levam `Authorization: Bearer`, porque o cookie não vale em `/api`.
+O Postgres lê `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`. A senha é obrigatória (`${POSTGRES_PASSWORD:?}`): sem ela o compose não sobe. A `DATABASE_URL` da API é montada com esses três valores. Não preencha a URL à mão.
 
-No servidor:
+`PERSISTENCIA=prisma` e `TAREFAS_REPO=prisma`. Cada subida da API roda `prisma migrate deploy` antes do processo. O banco fica no volume nomeado `spl_pgdata`.
+
+Cole no ambiente do Dokploy o que está em [`.env.producao.example`](.env.producao.example). `SEED_EXEMPLO` fica `false` no compose. O primeiro login sai de `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_SENHA`.
+
+A sessão do hub é o cookie `spl_sessao` com `Path=/hub` (e `Secure` só em HTTPS). A landing em `/` não recebe esse cookie. A API recebe `Authorization: Bearer`.
+
+Quem preferir os dois arquivos locais, em vez do arquivo único:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dokploy.yml up -d --build
 ```
 
-O override entra na rede externa `dokploy-network`, tira as portas do host e define `NEXT_PUBLIC_API_URL` e `VITE_API_URL` como `https://splsolucoes.com/api`. As labels usam o entrypoint `websecure` e o certresolver `letsencrypt`. Prioridade maior em `/hub` e `/api`; o resto cai na landing.
+O `docker compose up` da raiz continua sendo o ambiente local, com senha `spl` se `POSTGRES_PASSWORD` não estiver definida.
 
 ### Troca de DNS (quando for a hora)
 
-1. Subir o compose no Dokploy e abrir `https://splsolucoes.com`, `/hub` e `/api/health` pelo IP ou por um host de teste.
+O workflow de Pages e o `CNAME` continuam. Esta etapa não desliga nada.
+
+1. No Dokploy, compose `docker-compose.prod.yml` e o ambiente do exemplo. Abra `/hub` e `/api/health` por um host de teste.
 2. Criar o registro **A** de `splsolucoes.com` para o IP do servidor.
-3. Esperar o certificado e conferir os três caminhos.
-4. Desligar o GitHub Pages (Settings → Pages) para o domínio não disputar com o A.
-5. A partir daí, notícia nova pede rebuild da **imagem da landing** no Dokploy. O dispatch para o Pages pode sair.
+3. Esperar o certificado e conferir `/`, `/hub` e `/api/health`.
+4. Só então desligar o GitHub Pages, para o domínio não disputar com o A.
+5. Notícia nova pede rebuild da imagem da landing no Dokploy. O dispatch para o Pages pode sair.
 
 `GITHUB_ADAPTER=fake` (padrão) não chama o GitHub. `GITHUB_ADAPTER=http` escolhe o adapter real, que ainda responde 501.
 
