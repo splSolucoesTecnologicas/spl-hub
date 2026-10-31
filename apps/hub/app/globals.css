@@ -197,8 +197,6 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .modal h2 { margin: 0; }
 .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--grey); }
 .btn.perigo { background: #3a1720; color: #ff8ea0; }
-.mini-mapa { width: 100%; height: 180px; background: #050605; border-radius: 12px; }
-.mini-mapa svg { width: 100%; height: 100%; }
 .pill.green { background: #12351f; color: var(--green); }
 .pill.blue { background: #14233c; color: #8eb6ff; }
 .pill.amber { background: #3a2c10; color: #f0c36a; }
@@ -235,7 +233,21 @@ input[type="checkbox"]:checked::before { transform: scale(1); }
 input[type="checkbox"]:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
+.seletor-cidade { display: grid; grid-template-columns: 1fr 220px; gap: 12px; background: #0a0c0a; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.seletor-cidade svg { width: 100%; height: 260px; display: block; }
+.estado-sel { fill: #0a141c; stroke: var(--mapa-linha); stroke-width: 1.15; cursor: pointer; transition: fill .15s ease; }
+.estado-sel:hover { fill: #122234; }
+.estado-sel.ativo { fill: #16314a; stroke: var(--blue); }
+.cidade-ponto { cursor: pointer; }
+.cidade-ponto circle { fill: var(--blue); stroke: #0a0c0a; stroke-width: .6; }
+.cidade-ponto:hover circle { fill: var(--off); }
+.seletor-lado { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.seletor-cidades-lista { display: flex; flex-direction: column; gap: 2px; max-height: 210px; overflow: auto; }
+.seletor-cidade-item { text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 6px 8px; color: var(--off); cursor: pointer; font-size: 13px; }
+.seletor-cidade-item:hover { background: #141816; }
+
 @media (max-width: 1100px) {
+  .seletor-cidade { grid-template-columns: 1fr; }
   .radar, .grade, .colunas, .cards-projetos, .stats-projeto, .detalhe-grade { grid-template-columns: 1fr; }
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: relative; height: auto; }

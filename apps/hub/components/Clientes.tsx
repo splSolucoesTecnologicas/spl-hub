@@ -2,12 +2,11 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { geocodificar, listarCidades, type ClienteDTO, type UsuarioDTO } from '@spl/contracts';
-import { ESTADOS } from '@/lib/brasil';
-import { desprojetar } from '@/lib/geo';
+import type { CidadeGeo, ClienteDTO, UsuarioDTO } from '@spl/contracts';
 import { api, type Pagina } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
 import { pode } from '@/lib/pode';
+import { SeletorCidade } from './SeletorCidade';
 
 type Rascunho = {
   id?: string;
@@ -39,17 +38,16 @@ export function PaginaClientes() {
   }
   useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, []);
 
-  function localizar() {
+  function escolherCidade(cidade: CidadeGeo) {
     if (!rascunho) return;
-    const geo = geocodificar(rascunho.cidade, rascunho.uf);
-    if (!geo) { setErro('Cidade não encontrada. Clique no mapa para marcar o ponto.'); return; }
     setErro('');
-    setRascunho({ ...rascunho, latitude: String(geo.lat), longitude: String(geo.lon), uf: geo.uf });
+    setRascunho({ ...rascunho, cidade: cidade.nome, uf: cidade.uf, latitude: String(cidade.lat), longitude: String(cidade.lon) });
   }
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
     if (!rascunho) return;
+    if (!rascunho.cidade || !rascunho.uf) { setErro('Escolha uma cidade no mapa.'); return; }
     const corpo = {
       nome: rascunho.nome, cidade: rascunho.cidade, uf: rascunho.uf, status: rascunho.status,
       latitude: rascunho.latitude ? Number(rascunho.latitude) : undefined,
@@ -120,30 +118,8 @@ export function PaginaClientes() {
             <h2>{rascunho.id ? 'Editar cliente' : 'Novo cliente'}</h2>
             {erro && <p className="erro">{erro}</p>}
             <label>Nome<input className="campo" value={rascunho.nome} onChange={(e) => setRascunho({ ...rascunho, nome: e.target.value })} required /></label>
-            <div className="linha">
-              <label>Cidade
-                <input className="campo" list="cidades" value={rascunho.cidade} onChange={(e) => setRascunho({ ...rascunho, cidade: e.target.value })} required />
-                <datalist id="cidades">{listarCidades().map((cidade) => <option key={`${cidade.uf}-${cidade.nome}`} value={cidade.nome}>{cidade.uf}</option>)}</datalist>
-              </label>
-              <label>UF<input className="campo" maxLength={2} value={rascunho.uf} onChange={(e) => setRascunho({ ...rascunho, uf: e.target.value.toUpperCase() })} required /></label>
-            </div>
-            <button className="btn fantasma" type="button" onClick={localizar}>Geocodificar pela cidade</button>
-            <div className="mini-mapa">
-              <svg viewBox="0 0 640 640" aria-label="Escolher ponto no mapa" onClick={(evento) => {
-                const svg = evento.currentTarget;
-                const caixa = svg.getBoundingClientRect();
-                const x = ((evento.clientX - caixa.left) / caixa.width) * 640;
-                const y = ((evento.clientY - caixa.top) / caixa.height) * 640;
-                const ponto = desprojetar(x, y);
-                setRascunho({ ...rascunho, latitude: ponto.lat.toFixed(4), longitude: ponto.lon.toFixed(4) });
-              }}>
-                {ESTADOS.map((estado) => <path key={estado.sigla} className="estado" d={estado.d} />)}
-              </svg>
-            </div>
-            <div className="linha">
-              <label>Latitude<input className="campo" value={rascunho.latitude} onChange={(e) => setRascunho({ ...rascunho, latitude: e.target.value })} /></label>
-              <label>Longitude<input className="campo" value={rascunho.longitude} onChange={(e) => setRascunho({ ...rascunho, longitude: e.target.value })} /></label>
-            </div>
+            <label>Cidade {rascunho.cidade ? <span className="aviso">· selecionado: {rascunho.cidade} · {rascunho.uf}</span> : <span className="aviso">· nenhuma cidade selecionada</span>}</label>
+            <SeletorCidade ufInicial={rascunho.uf || null} onEscolher={escolherCidade} />
             <label>Status<input className="campo" value={rascunho.status} onChange={(e) => setRascunho({ ...rascunho, status: e.target.value })} required /></label>
             <label>Responsável
               <select className="campo" value={rascunho.responsavelId} onChange={(e) => setRascunho({ ...rascunho, responsavelId: e.target.value })}>

@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { Nivel, Permissoes, UsuarioDTO } from '@spl/contracts';
+import type { CidadeGeo, Nivel, Permissoes, UsuarioDTO } from '@spl/contracts';
 import { api, type AuditoriaDTO, type Pagina, type SolicitacaoAcessoDTO, type TarefaDTO } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
+import { SeletorCidade } from './SeletorCidade';
 
 const LINHAS: { id: keyof Permissoes; nome: string }[] = [
   { id: 'inicio', nome: 'Início / Radar' }, { id: 'tarefas', nome: 'Tarefas' }, { id: 'projetos', nome: 'Projetos' }, { id: 'clientes', nome: 'Clientes' }, { id: 'frentes', nome: 'Frentes (legado)' },
@@ -108,6 +109,7 @@ export function PerfilTime() {
   const [auditoria, setAuditoria] = useState<AuditoriaDTO[]>([]);
   const [aviso, setAviso] = useState('');
   const [confirmar, setConfirmar] = useState(false);
+  const [editandoCidade, setEditandoCidade] = useState(false);
 
   async function carregar() {
     const pagina = await api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100');
@@ -122,6 +124,11 @@ export function PerfilTime() {
   if (!pessoa) return <section className="pagina"><p>{aviso || 'Carregando perfil…'}</p></section>;
 
   function patch(parcial: Partial<UsuarioDTO>) { setPessoa({ ...pessoa!, ...parcial }); }
+
+  function escolherCidade(cidade: CidadeGeo) {
+    patch({ cidade: cidade.nome, uf: cidade.uf, latitude: cidade.lat, longitude: cidade.lon });
+    setEditandoCidade(false);
+  }
 
   async function salvar() {
     const atualizado = await api<UsuarioDTO>(`/acesso/usuarios/${pessoa!.id}`, {
@@ -149,10 +156,20 @@ export function PerfilTime() {
           <div className="selos">{pessoa.papeis.map((papel) => <span key={papel} className="chip green">{papel}</span>)}</div>
           <dl>
             <dt>E-mail</dt><dd>{pessoa.email}</dd>
-            <dt>Cidade</dt><dd>{pessoa.cidade ? `${pessoa.cidade} · ${pessoa.uf}` : 'a definir'}</dd>
+            <dt>Cidade</dt>
+            <dd>
+              {pessoa.cidade ? `${pessoa.cidade} · ${pessoa.uf}` : 'a definir'}
+              {eu.admin && <button className="btn fantasma" type="button" onClick={() => setEditandoCidade((v) => !v)} style={{ marginLeft: 8, padding: '2px 10px' }}>{editandoCidade ? 'Fechar' : 'Editar'}</button>}
+            </dd>
             <dt>2FA</dt><dd>{pessoa.totpAtivo ? 'Ativo' : 'Desligado'}</dd>
             <dt>Último acesso</dt><dd>{pessoa.ultimoAcesso ? new Date(pessoa.ultimoAcesso).toLocaleString('pt-BR') : '—'}</dd>
           </dl>
+          {editandoCidade && eu.admin && (
+            <>
+              <SeletorCidade ufInicial={pessoa.uf} onEscolher={escolherCidade} />
+              <p className="aviso">Escolha a cidade e clique em &quot;Salvar alterações&quot; abaixo pra confirmar.</p>
+            </>
+          )}
           <h3>Trabalhando em</h3>
           {tarefas.map((tarefa) => <p key={tarefa.id}>{tarefa.titulo}{tarefa.referencia ? ` · ${tarefa.referencia}` : ''}</p>)}
           {tarefas.length === 0 && <p className="aviso">Nada em aberto.</p>}

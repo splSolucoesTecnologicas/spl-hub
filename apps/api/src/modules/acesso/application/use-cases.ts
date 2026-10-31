@@ -98,17 +98,21 @@ export function criarCasosDeUsoAcesso(deps: {
       latitude?: number | null; longitude?: number | null; frentes?: string[];
       permissoes?: Permissoes; ativo?: boolean; admin?: boolean;
     }) {
-      if (!ator.admin) throw new ErroDeDominio('sem_permissao', 'Só admin edita vínculo, área e permissões');
+      const souEu = ator.id === id;
+      if (!ator.admin && !souEu) throw new ErroDeDominio('sem_permissao', 'Só admin edita outras pessoas');
       const alvo = await usuarios.buscarPorId(id);
       if (!alvo) throw new UsuarioNaoEncontrado();
-      const deixaDeSerAdmin = alvo.admin && (input.ativo === false || input.admin === false);
+      const entrada = ator.admin
+        ? input
+        : { nome: input.nome, cidade: input.cidade, uf: input.uf, latitude: input.latitude, longitude: input.longitude };
+      const deixaDeSerAdmin = alvo.admin && (entrada.ativo === false || input.admin === false);
       if (deixaDeSerAdmin) {
         const admins = await usuarios.contarAdmins();
         if (admins <= 1) throw new ErroDeDominio('ultimo_admin', 'Não é possível desativar o último admin');
       }
-      alvo.alterarPerfil(input);
-      if (input.admin !== undefined) alvo.definirAdmin(input.admin);
-      if (input.permissoes) alvo.definirPermissoes(input.permissoes);
+      alvo.alterarPerfil(entrada);
+      if (ator.admin && input.admin !== undefined) alvo.definirAdmin(input.admin);
+      if (ator.admin && input.permissoes) alvo.definirPermissoes(input.permissoes);
       await usuarios.salvar(alvo);
       await auditoria.registrar({
         id: ids.novo(), atorId: ator.id, acao: 'atualizar_usuario', alvo: alvo.id,

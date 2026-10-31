@@ -331,4 +331,4 @@ export const CriarObjetivoSchema = z.object({
 }).openapi('CriarObjetivo');
 export const AtualizarObjetivoSchema = CriarObjetivoSchema.partial().openapi('AtualizarObjetivo');
 
-export { geocodificar, listarCidades, type CidadeGeo } from './cidades.js';
+export { geocodificar, listarCidades, listarCidadesPorUf, type CidadeGeo } from './cidades.js';

@@ -37,4 +37,17 @@ describe('Casos de uso de acesso', () => {
     permissoes.socios = { nivel: 'ler', extraAte: null };
     await expect(acesso.atualizarUsuario(admin, lucas.id, { permissoes })).rejects.toThrow(/sócio/);
   });
+
+  it('usuário comum edita a própria cidade mas não vira admin nem edita outra pessoa', async () => {
+    const { acesso } = memoria();
+    const admin = await acesso.criarUsuario({ nome: 'Admin', email: 'admin@splsolucoes.com', senha: 'SplExemplo#2026', vinculo: 'socio', area: 'dev', admin: true });
+    const lucas = await acesso.criarUsuario({ nome: 'Lucas', email: 'lucas@splsolucoes.com', senha: 'SplExemplo#2026', vinculo: 'colaborador', area: 'dev' });
+
+    const atualizado = await acesso.atualizarUsuario(lucas, lucas.id, { cidade: 'Curitiba', uf: 'PR', latitude: -25.43, longitude: -49.27, admin: true, area: 'financeiro' });
+    expect(atualizado.cidade).toBe('Curitiba');
+    expect(atualizado.admin).toBe(false);
+    expect(atualizado.area).toBe('dev');
+
+    await expect(acesso.atualizarUsuario(lucas, admin.id, { cidade: 'São Paulo' })).rejects.toThrow(/admin/);
+  });
 });
