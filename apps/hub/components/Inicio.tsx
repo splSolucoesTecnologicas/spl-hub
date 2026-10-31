@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { select } from 'd3-selection';
-import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
+import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
 import type { ClienteDTO, DecisaoDTO, LayoutInicioDTO, NoticiaPublicaDTO, ObjetivoDTO, ProjetoDTO, UsuarioDTO } from '@spl/contracts';
 import { geocodificar } from '@spl/contracts';
 import { ESTADOS } from '@/lib/brasil';
@@ -25,6 +25,38 @@ function pontoPessoa(pessoa: UsuarioDTO) {
   if (!pessoa.cidade) return null;
   const geo = geocodificar(pessoa.cidade, pessoa.uf);
   return geo ? projetar(geo.lat, geo.lon) : null;
+}
+
+const ALTURA_ROTULO = 13;
+const DESVIOS = [0, -ALTURA_ROTULO, ALTURA_ROTULO, -26, 26, -39, 39, -52, 52];
+
+type Marcador = { id: string; x: number; y: number; cor: string; nome: string; tipo: 'equipe' | 'cliente'; alvo?: string };
+type Vista = { k: number; x: number; y: number };
+
+/** Posiciona os rotulos em volta dos pontos sem deixar nenhum encostar no outro. */
+function montarRotulos(marcadores: Marcador[], vista: Vista, mostrarClientes: boolean) {
+  const ocupados: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const saida: (Marcador & { sx: number; sy: number; rx: number; ry: number; desvio: number; largura: number; esquerda: boolean })[] = [];
+  const visiveis = marcadores
+    .filter((item) => item.tipo === 'equipe' || mostrarClientes)
+    .map((item) => ({ ...item, sx: item.x * vista.k + vista.x, sy: item.y * vista.k + vista.y }))
+    .filter((item) => item.sx > -40 && item.sx < 680 && item.sy > -20 && item.sy < 660)
+    .sort((a, b) => a.sy - b.sy);
+  for (const item of visiveis) {
+    const largura = item.nome.length * 5.3 + 8;
+    const esquerda = item.sx > 520;
+    for (const desvio of DESVIOS) {
+      const ry = item.sy + 3.4 + desvio;
+      const rx = esquerda ? item.sx - 7 - largura : item.sx + 7;
+      const caixa = { x1: rx - 3, y1: ry - 9.5, x2: rx + largura, y2: ry + 4 };
+      const bate = ocupados.some((c) => caixa.x1 < c.x2 && caixa.x2 > c.x1 && caixa.y1 < c.y2 && caixa.y2 > c.y1);
+      if (bate) continue;
+      ocupados.push(caixa);
+      saida.push({ ...item, rx, ry, desvio, largura, esquerda });
+      break;
+    }
+  }
+  return saida;
 }
 
 const STATUS_ATIVO = new Set(['piloto', 'validacao', 'em_desenvolvimento', 'proposta']);
@@ -67,6 +99,8 @@ export function Inicio() {
   const svgRef = useRef<SVGSVGElement>(null);
   const grupoRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const animacaoRef = useRef(0);
+  const [vista, setVista] = useState<Vista>({ k: 1, x: 0, y: 0 });
   const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
   const [clientes, setClientes] = useState<ClienteDTO[]>([]);
   const [projetos, setProjetos] = useState<ProjetoDTO[]>([]);
@@ -106,11 +140,16 @@ export function Inicio() {
     if (!svg || !grupo) return;
     const selecao = select(svg);
     const comportamento = zoom<SVGSVGElement, unknown>()
-      .scaleExtent([1, 8])
-      .on('zoom', (evento) => { select(grupo).attr('transform', evento.transform.toString()); });
+      .scaleExtent([1, 14])
+      .translateExtent([[-120, -120], [760, 760]])
+      .on('zoom', (evento) => {
+        const t = evento.transform as ZoomTransform;
+        select(grupo).attr('transform', t.toString());
+        setVista({ k: t.k, x: t.x, y: t.y });
+      });
     selecao.call(comportamento);
     zoomRef.current = comportamento;
-    return () => { selecao.on('.zoom', null); };
+    return () => { selecao.on('.zoom', null); cancelAnimationFrame(animacaoRef.current); };
   }, []);
 
   useEffect(() => {
@@ -121,13 +160,30 @@ export function Inicio() {
     return () => clearTimeout(tempo);
   }, [layout]);
 
+  /** Zoom com tween proprio: o mapa desliza em vez de pular de um quadro para o outro. */
   function aplicarZoom(fator: number | null) {
     const svg = svgRef.current;
     const comportamento = zoomRef.current;
     if (!svg || !comportamento) return;
     const selecao = select(svg);
-    if (fator == null) comportamento.transform(selecao, zoomIdentity);
-    else comportamento.scaleBy(selecao, fator);
+    const de = zoomTransform(svg);
+    const centro = 320;
+    const escala = fator == null ? 1 : Math.min(14, Math.max(1, de.k * fator));
+    const para = fator == null
+      ? zoomIdentity
+      : zoomIdentity.translate(centro - ((centro - de.x) / de.k) * escala, centro - ((centro - de.y) / de.k) * escala).scale(escala);
+    const inicio = performance.now();
+    cancelAnimationFrame(animacaoRef.current);
+    const passo = (agora: number) => {
+      const p = Math.min(1, (agora - inicio) / 380);
+      const e = p < 0.5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
+      const k = de.k + (para.k - de.k) * e;
+      const x = de.x + (para.x - de.x) * e;
+      const y = de.y + (para.y - de.y) * e;
+      comportamento.transform(selecao, zoomIdentity.translate(x, y).scale(k));
+      if (p < 1) animacaoRef.current = requestAnimationFrame(passo);
+    };
+    animacaoRef.current = requestAnimationFrame(passo);
   }
 
   const cliente = clientes.find((item) => item.id === aberto);
@@ -141,6 +197,24 @@ export function Inicio() {
     const dias = (new Date(item.prazo).getTime() - Date.now()) / 86400000;
     return dias <= 7 && (dias >= 0 || item.atrasada);
   });
+
+  const marcadores = useMemo<Marcador[]>(() => {
+    const lista: Marcador[] = [];
+    if (mostraEquipe) {
+      for (const pessoa of pessoas) {
+        const ponto = pontoPessoa(pessoa);
+        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, cor: '#00ff66', nome: pessoa.nome.split(' ')[0], tipo: 'equipe' });
+      }
+    }
+    for (const item of clientes.filter(mostraCliente)) {
+      const ponto = projetar(item.latitude, item.longitude);
+      lista.push({ id: `c-${item.id}`, x: ponto.x, y: ponto.y, cor: projetoDo(item.id)?.cor ?? '#8ba3b8', nome: item.nome, tipo: 'cliente', alvo: item.id });
+    }
+    return lista;
+  }, [pessoas, clientes, projetos, filtro]);
+
+  // Nomes de cliente so aparecem com o mapa aproximado — perto demais vira sopa de letras.
+  const rotulos = useMemo(() => montarRotulos(marcadores, vista, vista.k >= 1.8), [marcadores, vista]);
 
   const cardsPermitidos = useMemo(() => {
     const permitido: Record<string, boolean> = {
@@ -293,34 +367,35 @@ export function Inicio() {
         <svg ref={svgRef} viewBox="0 0 640 640" role="img" aria-label="Mapa do Brasil com a equipe e os clientes">
           <g ref={grupoRef}>
             {ESTADOS.map((estado) => <path key={estado.sigla} className="estado" d={estado.d} />)}
-            {mostraEquipe && (() => {
-              const vistos = new Map<string, number>();
-              return pessoas.map((pessoa) => {
-                const ponto = pontoPessoa(pessoa);
-                if (!ponto) return null;
-                const chave = `${ponto.x.toFixed(1)},${ponto.y.toFixed(1)}`;
-                const ordem = vistos.get(chave) ?? 0;
-                vistos.set(chave, ordem + 1);
-                const deslocY = ordem * 14;
-                return (
-                  <g key={pessoa.id} className="ponto" style={{ color: '#00ff66' }}>
-                    <circle className="halo" cx={ponto.x} cy={ponto.y} r="9" />
-                    <circle className="nucleo" cx={ponto.x} cy={ponto.y} r="4.5" fill="currentColor" />
-                    <text className="rotulo" x={ponto.x + 8} y={ponto.y - 6 + deslocY} fill="#00ff66">{pessoa.nome.split(' ')[0]}</text>
-                  </g>
-                );
-              });
-            })()}
-            {clientes.filter(mostraCliente).map((item) => {
-              const ponto = projetar(item.latitude, item.longitude);
-              const cor = projetoDo(item.id)?.cor ?? '#8a908c';
-              return (
-                <g key={item.id} className="ponto" style={{ color: cor }} onClick={() => setAberto(item.id)}>
-                  <circle className="halo" cx={ponto.x} cy={ponto.y} r="8" />
-                  <circle className="nucleo" cx={ponto.x} cy={ponto.y} r="4" fill="currentColor" />
-                </g>
-              );
-            })}
+            {marcadores.map((marcador, indice) => (
+              <g
+                key={marcador.id}
+                className={`ponto ponto-${marcador.tipo}`}
+                style={{ color: marcador.cor, '--atraso': `${(indice % 6) * 0.34}s` } as React.CSSProperties}
+                transform={`translate(${marcador.x} ${marcador.y}) scale(${1 / vista.k})`}
+                onClick={marcador.alvo ? () => setAberto(marcador.alvo!) : undefined}
+              >
+                <circle className="anel" r="6" />
+                <circle className="nucleo" r="1.9" />
+                <circle className="alvo" r="9" />
+              </g>
+            ))}
+          </g>
+          <g className="camada-rotulos" aria-hidden="true">
+            {rotulos.map((rotulo) => (
+              <g key={rotulo.id} className={`rotulo-grupo rotulo-${rotulo.tipo}`} style={{ color: rotulo.cor }}>
+                {Math.abs(rotulo.desvio) > 6 && (
+                  <line
+                    className="conector"
+                    x1={rotulo.sx}
+                    y1={rotulo.sy}
+                    x2={rotulo.esquerda ? rotulo.rx + rotulo.largura - 4 : rotulo.rx - 3}
+                    y2={rotulo.ry - 3.4}
+                  />
+                )}
+                <text className="rotulo" x={rotulo.rx} y={rotulo.ry}>{rotulo.nome}</text>
+              </g>
+            ))}
           </g>
         </svg>
         {cliente && (

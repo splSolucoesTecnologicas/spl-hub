@@ -49,9 +49,11 @@
   --purple: #b07cff;
   --amber: #f0a202;
   --red: #ff5d73;
-  --mapa-linha: #3f6f93;
-  --mapa-fundo-1: #0b1620;
-  --mapa-fundo-2: #050605;
+  --mapa-linha: #2b4a63;
+  --mapa-terra: #0c141c;
+  --mapa-fundo-1: #070b10;
+  --mapa-fundo-2: #04060a;
+  --mapa-rotulo: #e9f1f7;
   font-family: Inter, sans-serif;
   color: var(--off);
   background: var(--black);
@@ -108,8 +110,6 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .mapa-caixa svg { width: 100%; height: 640px; display: block; }
 .mapa-caixa .estado { fill: #07140c; stroke: #1d8a45; stroke-width: 1.1; }
 .ponto { cursor: pointer; }
-.ponto circle.halo { fill: none; stroke: currentColor; opacity: .45; }
-.rotulo { font-size: 11px; font-family: Sora, sans-serif; font-weight: 700; }
 .popup { position: absolute; left: 28px; bottom: 28px; width: 280px; background: #161816; border: 1px solid #2a2e2b; border-radius: 16px; padding: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.45); }
 .popup header { display: flex; justify-content: space-between; align-items: center; color: var(--purple); font-size: 12px; }
 .popup h3 { margin: 8px 0 2px; }
@@ -170,10 +170,30 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .topo.sobre { position: absolute; z-index: 4; left: 0; right: 0; background: linear-gradient(#050605, transparent); }
 .radar-tela { position: absolute; inset: 0; }
 .mapa-livre { position: absolute; inset: 0; }
-.mapa-livre svg { width: 100%; height: 100%; display: block; background: radial-gradient(circle at 58% 42%, var(--mapa-fundo-1), var(--mapa-fundo-2) 68%); touch-action: none; cursor: grab; }
-.mapa-livre .estado { fill: #0a141c; stroke: var(--mapa-linha); stroke-width: 1.15; filter: drop-shadow(0 0 2px #3f6f9377); }
-.ponto circle.halo { fill: none; stroke: currentColor; opacity: .7; }
-.ponto circle.nucleo { filter: drop-shadow(0 0 5px currentColor); }
+.mapa-livre svg { width: 100%; height: 100%; display: block; background: linear-gradient(180deg, var(--mapa-fundo-1), var(--mapa-fundo-2)); touch-action: none; cursor: grab; shape-rendering: geometricPrecision; }
+.mapa-livre svg:active { cursor: grabbing; }
+.mapa-livre .estado { fill: var(--mapa-terra); stroke: var(--mapa-linha); stroke-width: .7; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+/* Marcador: nucleo do tamanho de um grao de arroz + anel que pulsa. */
+.ponto .nucleo { fill: currentColor; animation: pisca-nucleo 2.6s ease-in-out infinite; animation-delay: var(--atraso, 0s); }
+.ponto .anel { fill: none; stroke: currentColor; stroke-width: .9; transform-box: fill-box; transform-origin: center; animation: pulso-anel 2.6s cubic-bezier(.22, .7, .3, 1) infinite; animation-delay: var(--atraso, 0s); }
+.ponto .alvo { fill: transparent; }
+.ponto-equipe { cursor: default; }
+.ponto:hover .nucleo { animation: none; }
+.ponto:hover .anel { animation: none; opacity: .85; transform: scale(1); }
+@keyframes pisca-nucleo { 0%, 100% { opacity: 1; } 55% { opacity: .45; } }
+@keyframes pulso-anel { 0% { transform: scale(.25); opacity: .7; } 70%, 100% { transform: scale(1.5); opacity: 0; } }
+
+/* Rotulos vivem fora do grupo com zoom: nao esticam e nunca se sobrepoem. */
+.camada-rotulos { pointer-events: none; }
+.rotulo { font-size: 10.5px; font-family: Inter, sans-serif; font-weight: 600; letter-spacing: .01em; fill: var(--mapa-rotulo); paint-order: stroke; stroke: rgba(3, 6, 10, .9); stroke-width: 2.6px; stroke-linejoin: round; }
+.rotulo-cliente .rotulo { fill: currentColor; font-weight: 500; font-size: 10px; }
+.conector { stroke: rgba(233, 241, 247, .32); stroke-width: .6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ponto .nucleo, .ponto .anel { animation: none; }
+  .ponto .anel { opacity: .5; transform: scale(1); }
+}
 .flutua { background: rgba(10, 12, 14, .82); backdrop-filter: blur(10px); border-radius: 16px; }
 .flutua-topo { position: absolute; z-index: 2; top: 72px; left: 18px; right: 340px; padding: 12px 14px; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
 .flutua-topo h1 { font-size: 34px; margin-bottom: 8px; }
@@ -244,7 +264,7 @@ label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center;
 .seletor-busca-resultados { max-height: 260px; border: 1px solid var(--line); border-radius: 14px; padding: 6px; background: #0a0c0a; }
 .seletor-cidade { display: grid; grid-template-columns: 1fr 220px; gap: 12px; background: #0a0c0a; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
 .seletor-cidade svg { width: 100%; height: 260px; display: block; }
-.estado-sel { fill: #0a141c; stroke: var(--mapa-linha); stroke-width: 1.15; cursor: pointer; transition: fill .15s ease; }
+.estado-sel { fill: var(--mapa-terra); stroke: var(--mapa-linha); stroke-width: .9; cursor: pointer; transition: fill .15s ease; }
 .estado-sel:hover { fill: #122234; }
 .estado-sel.ativo { fill: #16314a; stroke: var(--blue); }
 .cidade-ponto { cursor: pointer; }
