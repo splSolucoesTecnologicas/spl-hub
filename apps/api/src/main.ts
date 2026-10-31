@@ -32,6 +32,14 @@ function chavePrivadaGithub(): string | undefined {
 
 function githubDe(): GitHubProjetos {
   const chavePrivada = chavePrivadaGithub();
+  console.log(
+    `github env: GITHUB_ADAPTER=${JSON.stringify(process.env.GITHUB_ADAPTER)} `
+    + `GITHUB_APP_ID=${process.env.GITHUB_APP_ID ? 'presente' : 'ausente'} `
+    + `GITHUB_APP_INSTALLATION_ID=${process.env.GITHUB_APP_INSTALLATION_ID ? 'presente' : 'ausente'} `
+    + `GITHUB_APP_PRIVATE_KEY_PATH=${process.env.GITHUB_APP_PRIVATE_KEY_PATH ? 'presente' : 'ausente'} `
+    + `GITHUB_APP_PRIVATE_KEY=${process.env.GITHUB_APP_PRIVATE_KEY ? `presente(${process.env.GITHUB_APP_PRIVATE_KEY.length} chars)` : 'ausente'} `
+    + `chavePrivadaResolvida=${chavePrivada ? `${chavePrivada.length} chars` : 'nenhuma'}`,
+  );
   if (process.env.GITHUB_ADAPTER === 'app' && process.env.GITHUB_APP_ID && chavePrivada && process.env.GITHUB_APP_INSTALLATION_ID) {
     return new AppGitHubProjetos({
       appId: process.env.GITHUB_APP_ID,
