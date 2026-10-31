@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import type { GithubStatusDTO, TarefaDTO } from '@spl/contracts';
+import type { GithubStatusDTO, TarefaDTO, UsuarioDTO } from '@spl/contracts';
 import { api, type Pagina } from '@/lib/api';
 
 const COLUNAS: { id: TarefaDTO['coluna']; nome: string }[] = [
@@ -33,6 +33,7 @@ function tempoRelativo(iso: string | null): string | null {
 export function Quadro({ projetoId, embutido = false }: { projetoId?: string; embutido?: boolean }) {
   const [filtro, setFiltro] = useState<'minhas' | 'de_olho' | 'todas'>('todas');
   const [tarefas, setTarefas] = useState<TarefaDTO[]>([]);
+  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
   const [github, setGithub] = useState<GithubStatusDTO | null>(null);
   const [criando, setCriando] = useState(false);
   const [titulo, setTitulo] = useState('');
@@ -48,6 +49,7 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
     setTarefas(pagina.data);
   }
   useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, [filtro, projetoId]);
+  useEffect(() => { void api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100').then((pagina) => setPessoas(pagina.data)).catch(() => setPessoas([])); }, []);
   useEffect(() => {
     if (embutido) return;
     void api<GithubStatusDTO>('/github/status').then(setGithub).catch(() => setGithub({ conectado: false, organizacao: null }));
@@ -90,6 +92,7 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
 
   const ultimaSync = tarefas.reduce<string | null>((maior, tarefa) => (!maior || (tarefa.sincronizadaEm && tarefa.sincronizadaEm > maior) ? tarefa.sincronizadaEm : maior), null);
   const temExemplo = tarefas.some((tarefa) => tarefa.exemplo);
+  const pessoaDe = (id: string | null) => pessoas.find((pessoa) => pessoa.id === id);
 
   return (
     <section className={embutido ? undefined : 'pagina'}>
@@ -141,6 +144,12 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
                       {tarefa.pullRequest && <span className="chip blue">PR {tarefa.pullRequest}</span>}
                       {tarefa.atrasada && tarefa.prazo && <span className="atrasada">Atrasada {new Date(tarefa.prazo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
                       {!tarefa.atrasada && tarefa.coluna === 'feito' && <span className="chip green">{new Date(tarefa.atualizadaEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
+                      {pessoaDe(tarefa.responsavelId) && (
+                        <span className="responsavel-mini" title={pessoaDe(tarefa.responsavelId)!.nome}>
+                          <i>{pessoaDe(tarefa.responsavelId)!.nome[0]}</i>
+                          {pessoaDe(tarefa.responsavelId)!.nome.split(' ')[0]}
+                        </span>
+                      )}
                       <span className="cartao-acoes">
                         <button className="btn fantasma" type="button" onClick={() => setEditando(tarefa)}>Editar</button>
                         <button className="btn perigo" type="button" onClick={() => setExcluindo(tarefa)}>Excluir</button>
