@@ -15,6 +15,7 @@ export interface MarcoProjeto { id: string; titulo: string; status: StatusMarco;
 const COR = /^#[0-9a-fA-F]{6}$/;
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const URL = /^https?:\/\/\S+$/;
+const COLUNAS_HUB = ['a_fazer', 'fazendo', 'revisao', 'feito'] as const;
 
 export interface ProjetoProps {
   id: string;
@@ -26,6 +27,8 @@ export interface ProjetoProps {
   repositorio: string | null;
   quadroUrl: string | null;
   adminUrl: string | null;
+  githubProjectNumero: number | null;
+  githubColunaMap: Record<string, string> | null;
   progresso: number;
   progressoRotulo: string;
   responsaveis: ResponsavelProjeto[];
@@ -38,13 +41,14 @@ export interface ProjetoProps {
 export class Projeto {
   private constructor(private props: ProjetoProps) {}
 
-  static criar(input: Omit<ProjetoProps, 'criadoEm' | 'atualizadoEm' | 'descricao' | 'repositorio' | 'quadroUrl' | 'adminUrl' | 'progresso' | 'progressoRotulo' | 'responsaveis' | 'clienteIds' | 'marcos'> & {
+  static criar(input: Omit<ProjetoProps, 'criadoEm' | 'atualizadoEm' | 'descricao' | 'repositorio' | 'quadroUrl' | 'adminUrl' | 'githubProjectNumero' | 'githubColunaMap' | 'progresso' | 'progressoRotulo' | 'responsaveis' | 'clienteIds' | 'marcos'> & {
     agora: Date; descricao?: string; repositorio?: string | null; quadroUrl?: string | null; adminUrl?: string | null;
+    githubProjectNumero?: number | null; githubColunaMap?: Record<string, string> | null;
     progresso?: number; progressoRotulo?: string; responsaveis?: ResponsavelProjeto[]; clienteIds?: string[]; marcos?: MarcoProjeto[];
   }): Projeto {
     const projeto = new Projeto({
       id: input.id, nome: '', tipo: 'produto', status: 'piloto', descricao: '', cor: '#4c8dff',
-      repositorio: null, quadroUrl: null, adminUrl: null, progresso: 0, progressoRotulo: '',
+      repositorio: null, quadroUrl: null, adminUrl: null, githubProjectNumero: null, githubColunaMap: null, progresso: 0, progressoRotulo: '',
       responsaveis: [], clienteIds: [], marcos: [], criadoEm: input.agora, atualizadoEm: input.agora,
     });
     projeto.aplicar(input);
@@ -68,6 +72,7 @@ export class Projeto {
   private aplicar(input: {
     nome: string; tipo: TipoProjeto; status: StatusProjeto; cor: string; descricao?: string;
     repositorio?: string | null; quadroUrl?: string | null; adminUrl?: string | null; progresso?: number;
+    githubProjectNumero?: number | null; githubColunaMap?: Record<string, string> | null;
     progressoRotulo?: string; responsaveis?: ResponsavelProjeto[]; clienteIds?: string[]; marcos?: MarcoProjeto[];
   }): void {
     const nome = input.nome.trim();
@@ -83,6 +88,12 @@ export class Projeto {
     if (repositorio && !REPO.test(repositorio)) throw new ErroDeDominio('repositorio_invalido', 'Repositório no formato dono/nome');
     if (quadroUrl && !URL.test(quadroUrl)) throw new ErroDeDominio('url_invalida', 'Link do quadro precisa ser uma URL http(s)');
     if (adminUrl && !URL.test(adminUrl)) throw new ErroDeDominio('url_invalida', 'URL do admin precisa ser http(s)');
+    if (input.githubColunaMap != null) {
+      const completo = COLUNAS_HUB.every((coluna) => typeof input.githubColunaMap![coluna] === 'string' && input.githubColunaMap![coluna].length > 0);
+      if (!completo || Object.keys(input.githubColunaMap).length !== COLUNAS_HUB.length) {
+        throw new ErroDeDominio('mapeamento_incompleto', 'Mapeamento de colunas precisa cobrir a_fazer, fazendo, revisao e feito');
+      }
+    }
     const responsaveis = (input.responsaveis ?? []).map((item) => ({ area: item.area, usuarioId: item.usuarioId }));
     for (const item of responsaveis) {
       if (!AREAS_RESPONSAVEL.includes(item.area)) throw new ErroDeDominio('area_invalida', 'Área do responsável inválida');
@@ -101,6 +112,8 @@ export class Projeto {
     this.props.repositorio = repositorio;
     this.props.quadroUrl = quadroUrl;
     this.props.adminUrl = adminUrl;
+    this.props.githubProjectNumero = input.githubProjectNumero ?? null;
+    this.props.githubColunaMap = input.githubColunaMap ?? null;
     this.props.progresso = progresso;
     this.props.progressoRotulo = (input.progressoRotulo ?? '').trim();
     this.props.responsaveis = responsaveis;
@@ -117,6 +130,8 @@ export class Projeto {
   get repositorio() { return this.props.repositorio; }
   get quadroUrl() { return this.props.quadroUrl; }
   get adminUrl() { return this.props.adminUrl; }
+  get githubProjectNumero() { return this.props.githubProjectNumero; }
+  get githubColunaMap() { return this.props.githubColunaMap; }
   get progresso() { return this.props.progresso; }
   get progressoRotulo() { return this.props.progressoRotulo; }
   get responsaveis() { return this.props.responsaveis; }

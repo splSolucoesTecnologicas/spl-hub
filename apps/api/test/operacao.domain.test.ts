@@ -22,6 +22,14 @@ describe('Cliente e projeto', () => {
       id: '00000000-0000-4000-8000-000000000098', nome: 'Thumdra', tipo: 'produto', status: 'piloto', cor: '#4c8dff', repositorio: 'thumdra', agora: AGORA,
     })).toThrow(/Repositório/);
   });
+
+  it('valida o mapeamento de colunas do GitHub', () => {
+    const projeto = Projeto.criar({ id: '00000000-0000-4000-8000-000000000097', nome: 'Teste', tipo: 'produto', status: 'piloto', cor: '#4c8dff', agora: AGORA });
+    expect(() => projeto.atualizar({ githubColunaMap: { a_fazer: 'opt1' } }, AGORA)).toThrow(/[Mm]apeamento/);
+    projeto.atualizar({ githubProjectNumero: 3, githubColunaMap: { a_fazer: 'opt1', fazendo: 'opt2', revisao: 'opt3', feito: 'opt4' } }, AGORA);
+    expect(projeto.githubProjectNumero).toBe(3);
+    expect(projeto.githubColunaMap?.feito).toBe('opt4');
+  });
 });
 
 describe('Exclusão de pessoas', () => {
