@@ -8,7 +8,7 @@ import type { CasosDeUsoTarefas } from '../../../application/use-cases.js';
 const dto = (tarefa: Tarefa, agora: Date): TarefaDTO => ({
   id: tarefa.id, titulo: tarefa.titulo, coluna: tarefa.coluna, produto: tarefa.produto,
   responsavelId: tarefa.responsavelId, observadorIds: [...tarefa.observadorIds], projetoId: tarefa.projetoId, referencia: tarefa.referencia,
-  pullRequest: tarefa.pullRequest, prazo: tarefa.prazo ? tarefa.prazo.toISOString() : null, atrasada: tarefa.estaAtrasada(agora),
+  pullRequest: tarefa.pullRequest, githubIssueNumero: tarefa.githubIssueNumero, prazo: tarefa.prazo ? tarefa.prazo.toISOString() : null, atrasada: tarefa.estaAtrasada(agora),
   exemplo: tarefa.exemplo, sincronizadaEm: tarefa.sincronizadaEm ? tarefa.sincronizadaEm.toISOString() : null,
   criadaEm: tarefa.criadaEm.toISOString(), atualizadaEm: tarefa.atualizadaEm.toISOString(),
 });

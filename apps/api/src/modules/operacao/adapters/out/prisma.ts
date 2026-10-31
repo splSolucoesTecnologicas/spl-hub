@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import type { ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from '../../application/ports.js';
 import { Cliente, type ClienteProps } from '../../domain/cliente.js';
 import { Projeto, type ProjetoProps } from '../../domain/projeto.js';
@@ -23,8 +23,13 @@ export class PrismaClienteRepository implements ClienteRepository {
 export class PrismaProjetoRepository implements ProjetoRepository {
   constructor(private readonly db: PrismaClient) {}
   async salvar(projeto: Projeto) {
-    const { id, responsaveis, marcos, ...resto } = projeto.toJSON();
-    const dados = { ...resto, responsaveis: responsaveis as unknown as Prisma.InputJsonValue, marcos: marcos as unknown as Prisma.InputJsonValue };
+    const { id, responsaveis, marcos, githubColunaMap, ...resto } = projeto.toJSON();
+    const dados = {
+      ...resto,
+      responsaveis: responsaveis as unknown as Prisma.InputJsonValue,
+      marcos: marcos as unknown as Prisma.InputJsonValue,
+      githubColunaMap: githubColunaMap === null ? Prisma.JsonNull : (githubColunaMap as unknown as Prisma.InputJsonValue),
+    };
     await this.db.projeto.upsert({ where: { id }, create: { id, ...dados }, update: dados });
   }
   async buscarPorId(id: string) { const row = await this.db.projeto.findUnique({ where: { id } }); return row ? Projeto.restaurar(row as unknown as ProjetoProps) : null; }
