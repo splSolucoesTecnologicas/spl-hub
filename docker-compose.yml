@@ -32,7 +32,11 @@ services:
       SEED_EXEMPLO: "true"
       NODE_ENV: production
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173,https://splsolucoes.com
-      GITHUB_ADAPTER: fake
+      GITHUB_ADAPTER: ${GITHUB_ADAPTER:-fake}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-}
+      GITHUB_APP_PRIVATE_KEY_PATH: ${GITHUB_APP_PRIVATE_KEY_PATH:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
     ports: ["3333:3333"]
     depends_on:
       db:
