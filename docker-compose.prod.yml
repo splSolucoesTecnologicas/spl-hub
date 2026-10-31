@@ -48,13 +48,21 @@ services:
     networks: [interna, dokploy-network]
     labels:
       <<: *traefik
+      traefik.http.services.spl-api.loadbalancer.server.port: "3333"
+      traefik.http.middlewares.spl-api-strip.stripprefix.prefixes: /api
+      traefik.http.middlewares.spl-api-https.redirectscheme.scheme: https
+      traefik.http.middlewares.spl-api-https.redirectscheme.permanent: "true"
       traefik.http.routers.spl-api.rule: Host(`splsolucoes.com`) && PathPrefix(`/api`)
       traefik.http.routers.spl-api.entrypoints: websecure
-      traefik.http.routers.spl-api.tls.certresolver: letsencrypt
       traefik.http.routers.spl-api.priority: "100"
+      traefik.http.routers.spl-api.service: spl-api
       traefik.http.routers.spl-api.middlewares: spl-api-strip
-      traefik.http.middlewares.spl-api-strip.stripprefix.prefixes: /api
-      traefik.http.services.spl-api.loadbalancer.server.port: "3333"
+      traefik.http.routers.spl-api.tls.certresolver: letsencrypt
+      traefik.http.routers.spl-api-web.rule: Host(`splsolucoes.com`) && PathPrefix(`/api`) && !PathPrefix(`/.well-known/acme-challenge/`)
+      traefik.http.routers.spl-api-web.entrypoints: web
+      traefik.http.routers.spl-api-web.priority: "100"
+      traefik.http.routers.spl-api-web.service: spl-api
+      traefik.http.routers.spl-api-web.middlewares: spl-api-https
 
   hub:
     build:
@@ -67,11 +75,19 @@ services:
     networks: [dokploy-network]
     labels:
       <<: *traefik
+      traefik.http.services.spl-hub.loadbalancer.server.port: "3000"
+      traefik.http.middlewares.spl-hub-https.redirectscheme.scheme: https
+      traefik.http.middlewares.spl-hub-https.redirectscheme.permanent: "true"
       traefik.http.routers.spl-hub.rule: Host(`splsolucoes.com`) && PathPrefix(`/hub`)
       traefik.http.routers.spl-hub.entrypoints: websecure
-      traefik.http.routers.spl-hub.tls.certresolver: letsencrypt
       traefik.http.routers.spl-hub.priority: "100"
-      traefik.http.services.spl-hub.loadbalancer.server.port: "3000"
+      traefik.http.routers.spl-hub.service: spl-hub
+      traefik.http.routers.spl-hub.tls.certresolver: letsencrypt
+      traefik.http.routers.spl-hub-web.rule: Host(`splsolucoes.com`) && PathPrefix(`/hub`) && !PathPrefix(`/.well-known/acme-challenge/`)
+      traefik.http.routers.spl-hub-web.entrypoints: web
+      traefik.http.routers.spl-hub-web.priority: "100"
+      traefik.http.routers.spl-hub-web.service: spl-hub
+      traefik.http.routers.spl-hub-web.middlewares: spl-hub-https
 
   landing:
     build:
@@ -83,11 +99,33 @@ services:
     networks: [dokploy-network]
     labels:
       <<: *traefik
+      traefik.http.services.spl-landing.loadbalancer.server.port: "80"
+      traefik.http.middlewares.spl-landing-https.redirectscheme.scheme: https
+      traefik.http.middlewares.spl-landing-https.redirectscheme.permanent: "true"
+      traefik.http.middlewares.spl-www-apex.redirectregex.regex: ^https?://www\.splsolucoes\.com(.*)
+      traefik.http.middlewares.spl-www-apex.redirectregex.replacement: https://splsolucoes.com$${1}
+      traefik.http.middlewares.spl-www-apex.redirectregex.permanent: "true"
       traefik.http.routers.spl-landing.rule: Host(`splsolucoes.com`) && !PathPrefix(`/hub`) && !PathPrefix(`/api`)
       traefik.http.routers.spl-landing.entrypoints: websecure
-      traefik.http.routers.spl-landing.tls.certresolver: letsencrypt
       traefik.http.routers.spl-landing.priority: "1"
-      traefik.http.services.spl-landing.loadbalancer.server.port: "80"
+      traefik.http.routers.spl-landing.service: spl-landing
+      traefik.http.routers.spl-landing.tls.certresolver: letsencrypt
+      traefik.http.routers.spl-landing-web.rule: Host(`splsolucoes.com`) && !PathPrefix(`/hub`) && !PathPrefix(`/api`) && !PathPrefix(`/.well-known/acme-challenge/`)
+      traefik.http.routers.spl-landing-web.entrypoints: web
+      traefik.http.routers.spl-landing-web.priority: "1"
+      traefik.http.routers.spl-landing-web.service: spl-landing
+      traefik.http.routers.spl-landing-web.middlewares: spl-landing-https
+      traefik.http.routers.spl-www.rule: Host(`www.splsolucoes.com`)
+      traefik.http.routers.spl-www.entrypoints: websecure
+      traefik.http.routers.spl-www.priority: "200"
+      traefik.http.routers.spl-www.service: spl-landing
+      traefik.http.routers.spl-www.middlewares: spl-www-apex
+      traefik.http.routers.spl-www.tls.certresolver: letsencrypt
+      traefik.http.routers.spl-www-web.rule: Host(`www.splsolucoes.com`) && !PathPrefix(`/.well-known/acme-challenge/`)
+      traefik.http.routers.spl-www-web.entrypoints: web
+      traefik.http.routers.spl-www-web.priority: "200"
+      traefik.http.routers.spl-www-web.service: spl-landing
+      traefik.http.routers.spl-www-web.middlewares: spl-www-apex
 
 networks:
   interna:

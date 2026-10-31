@@ -49,7 +49,9 @@ O blog é buscado **no build** (`apps/landing/scripts/buscar-noticias.mjs`). Sem
 
 ### Dokploy (Traefik), um arquivo de compose
 
-O caminho do compose no Dokploy é só `docker-compose.prod.yml`. Ele não publica porta no host: o Traefik da rede `dokploy-network` encaminha o domínio.
+O caminho do compose no Dokploy é só `docker-compose.prod.yml`. Ele não publica porta no host: o Traefik da rede `dokploy-network` encaminha o domínio. Depois de mudar as labels, use **Redeploy** nesse compose.
+
+Na porta 80 cada serviço tem um router no entrypoint `web` que redireciona para HTTPS (301). O caminho `/.well-known/acme-challenge/` fica de fora: o Traefik do Dokploy responde o HTTP-01 da Let's Encrypt nele, com prioridade máxima. Sem esse 200 na porta 80 o certificado não sai e o HTTPS continua com o certificado padrão do Traefik. `www.splsolucoes.com` redireciona para `https://splsolucoes.com`. Todo router declara `service` — sem isso o Traefik responde 500. O `stripprefix` de `/api` fica só no router HTTPS.
 
 | Caminho | Serviço | Porta interna |
 |---|---|---|
