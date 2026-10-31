@@ -55,5 +55,9 @@ export function tarefasRoutes(casos: CasosDeUsoTarefas, acesso: CasosDeUsoAcesso
       const resultado = await casos.sincronizar(await atorDe(req));
       return { ...resultado, em: resultado.em.toISOString() };
     });
+
+    app.post<{ Body: { projetoId: string } }>('/tarefas/importar-issues', async (req) => {
+      return casos.importarIssuesDoProjeto(await atorDe(req), req.body.projetoId);
+    });
   };
 }

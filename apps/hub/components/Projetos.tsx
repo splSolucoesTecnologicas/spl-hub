@@ -315,6 +315,8 @@ export function DetalheProjeto() {
   const [marco, setMarco] = useState('');
   const [confirmar, setConfirmar] = useState(false);
   const [erro, setErro] = useState('');
+  const [importando, setImportando] = useState(false);
+  const [avisoImportar, setAvisoImportar] = useState('');
   const edita = pode(usuario, 'projetos', 'editar');
 
   async function carregar() {
@@ -345,6 +347,20 @@ export function DetalheProjeto() {
   async function excluir() {
     await api(`/projetos/${id}`, { method: 'DELETE' });
     router.push('/projetos');
+  }
+
+  async function importarIssues() {
+    setImportando(true);
+    setAvisoImportar('');
+    try {
+      const resultado = await api<{ importadas: number; total: number }>('/tarefas/importar-issues', { method: 'POST', body: JSON.stringify({ projetoId: id }) });
+      setAvisoImportar(`${resultado.importadas} issue(s) nova(s) importada(s) de ${resultado.total} no repositório.`);
+      await carregar();
+    } catch (falha) {
+      setAvisoImportar(falha instanceof Error ? falha.message : 'Não foi possível importar');
+    } finally {
+      setImportando(false);
+    }
   }
 
   async function adicionarMarco(evento: FormEvent) {
@@ -428,8 +444,17 @@ export function DetalheProjeto() {
       {aba === 'quadro' && <Quadro projetoId={id} embutido />}
       {aba === 'issues' && (
         <article className="painel">
-          <h2>Issues do GitHub</h2>
-          {tarefasComIssue.length === 0 && <p className="aviso">Nenhuma issue vinculada ainda. Issues aparecem aqui quando a tarefa é criada ou sincronizada com o repositório.</p>}
+          <div className="linha" style={{ justifyContent: 'space-between' }}>
+            <h2>Issues do GitHub</h2>
+            {edita && projeto.repositorio && (
+              <button className="btn fantasma" type="button" disabled={importando} onClick={() => void importarIssues()}>
+                {importando ? 'Importando…' : 'Importar issues existentes'}
+              </button>
+            )}
+          </div>
+          {avisoImportar && <p className="aviso">{avisoImportar}</p>}
+          {!projeto.repositorio && <p className="aviso">Vincule um repositório na edição do projeto pra importar issues.</p>}
+          {tarefasComIssue.length === 0 && <p className="aviso">Nenhuma issue vinculada ainda. Issues aparecem aqui quando a tarefa é criada, sincronizada ou importada do repositório.</p>}
           {tarefasComIssue.map((tarefa) => (
             <div className="decisao" key={tarefa.id}>
               <span>{tarefa.titulo}</span>

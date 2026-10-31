@@ -5,6 +5,15 @@ export class FakeGitHubProjetos implements GitHubProjetos {
   readonly modo = 'fake' as const;
   private sequencia = 400;
   private itens = new Map<string, { opcaoStatusId: string }>();
+  private issuesPreExistentes = new Map<string, { numero: number; titulo: string; estado: 'open' | 'closed'; nodeId: string }[]>();
+
+  /** Só pra testes: simula issues que já existiam no repo antes de qualquer sincronização pelo Hub. */
+  semearIssueExistente(owner: string, repo: string, issue: { numero: number; titulo: string; estado: 'open' | 'closed' }) {
+    const chave = `${owner}/${repo}`;
+    const lista = this.issuesPreExistentes.get(chave) ?? [];
+    lista.push({ ...issue, nodeId: `fake-issue-${issue.numero}` });
+    this.issuesPreExistentes.set(chave, lista);
+  }
 
   async sincronizar(tarefas: { id: string; titulo: string; coluna: string; referencia: string | null }[]) {
     const atualizacoes = tarefas.filter((tarefa) => !tarefa.referencia).map((tarefa) => ({ id: tarefa.id, referencia: `spl-hub#${++this.sequencia}` }));
@@ -37,6 +46,10 @@ export class FakeGitHubProjetos implements GitHubProjetos {
     const itemNodeId = input.itemNodeId ?? `fake-item-${input.issueNodeId}`;
     this.itens.set(itemNodeId, { opcaoStatusId: input.opcaoStatusId });
     return { itemNodeId };
+  }
+
+  async listarIssuesDoRepo(owner: string, repo: string) {
+    return this.issuesPreExistentes.get(`${owner}/${repo}`) ?? [];
   }
 
   async status() {

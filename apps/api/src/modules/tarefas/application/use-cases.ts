@@ -80,6 +80,27 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
       }
       return { modo: github.modo, sincronizadas: tarefas.length, detalhes: resultado.detalhes, em: agora };
     },
+    async importarIssuesDoProjeto(ator: Usuario, projetoId: string) {
+      ator.exigir('tarefas', 'editar');
+      const projeto = await projetos.buscarPorId(projetoId);
+      if (!projeto?.repositorio) throw new ErroDeDominio('projeto_sem_repo', 'Projeto não tem repositório do GitHub vinculado');
+      const [owner, repoNome] = projeto.repositorio.split('/');
+      if (!owner || !repoNome) throw new ErroDeDominio('projeto_sem_repo', 'Repositório do projeto inválido');
+      const issues = await github.listarIssuesDoRepo(owner, repoNome);
+      const existentes = await repo.listarTodas();
+      const agora = relogio.agora();
+      let importadas = 0;
+      for (const issue of issues) {
+        const jaExiste = existentes.some((tarefa) => tarefa.projetoId === projetoId && tarefa.githubIssueNumero === issue.numero);
+        if (jaExiste) continue;
+        const coluna: Coluna = issue.estado === 'closed' ? 'feito' : 'a_fazer';
+        const tarefa = Tarefa.criar({ id: ids.novo(), titulo: issue.titulo, agora, coluna, projetoId, referencia: `${projeto.repositorio}#${issue.numero}` });
+        tarefa.vincularGithub(issue.numero, issue.nodeId, null);
+        await repo.salvar(tarefa);
+        importadas++;
+      }
+      return { importadas, total: issues.length };
+    },
   };
 }
 

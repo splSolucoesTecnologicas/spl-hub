@@ -68,6 +68,13 @@ export class AppGitHubProjetos implements GitHubProjetos {
     return { itemNodeId };
   }
 
+  async listarIssuesDoRepo(owner: string, repo: string) {
+    const issues = await this.cliente.rest<{ number: number; title: string; state: 'open' | 'closed'; node_id: string; pull_request?: unknown }[]>(
+      `/repos/${owner}/${repo}/issues?state=all&per_page=100`,
+    );
+    return issues.filter((issue) => !issue.pull_request).map((issue) => ({ numero: issue.number, titulo: issue.title, estado: issue.state, nodeId: issue.node_id }));
+  }
+
   async status() {
     // "/app" só aceita o JWT do App, não o token de instalação — então usamos
     // "/installation/repositories" (aceita token de instalação) pra confirmar a conexão

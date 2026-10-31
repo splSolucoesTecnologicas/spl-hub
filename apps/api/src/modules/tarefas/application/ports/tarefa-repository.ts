@@ -23,5 +23,6 @@ export interface GitHubProjetos {
   definirStatusNoProjeto(input: {
     owner: string; repo: string; numeroProjeto: number; issueNodeId: string; itemNodeId: string | null; opcaoStatusId: string;
   }): Promise<{ itemNodeId: string }>;
+  listarIssuesDoRepo(owner: string, repo: string): Promise<{ numero: number; titulo: string; estado: 'open' | 'closed'; nodeId: string }[]>;
   status(): Promise<{ conectado: boolean; organizacao: string | null }>;
 }
