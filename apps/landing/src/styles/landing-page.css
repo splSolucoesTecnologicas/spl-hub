@@ -236,6 +236,10 @@ footer { border-top: 1px solid var(--line); background: var(--ink); padding: 56p
 .foot-links a:hover { color: var(--green); }
 .foot-note { display: flex; width: 100%; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 34px; border-top: 1px solid var(--line); padding-top: 26px; color: var(--grey-2); font-size: 12.5px; }
 .foot-legal { flex-basis: 100%; margin-top: 4px; color: var(--grey-2); font-size: 11.5px; opacity: .75; }
+.blog .lead, .blog-page .lead { margin-bottom: 12px; }
+.blog-page { padding: 140px 0 80px; }
+.blog-page .artigo p { max-width: 680px; margin-top: 18px; color: var(--grey); font-size: 17px; }
+.blog-page .more, .blog .more { color: var(--green); }
 
 @media (max-width: 1300px) { .sol-deco { display: none; } }
 @media (max-width: 1000px) {

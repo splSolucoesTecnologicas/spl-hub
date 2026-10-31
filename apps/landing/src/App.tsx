@@ -1,3 +1,4 @@
+import { BlogSection } from './blog/BlogSection'
 import { ChessProcessSection } from './components/ChessProcessSection'
 import { ApproachSection, ContactSection, ManifestoSection, Marquee, PartnersSection, SolutionsSection, TeamSection, ThumdraSection } from './components/ContentSections'
 import { HeroSection } from './components/HeroSection'
@@ -17,6 +18,7 @@ export default function App() {
         <TeamSection />
         <PartnersSection />
         <ManifestoSection />
+        <BlogSection />
         <ContactSection />
       </main>
       <SiteFooter />

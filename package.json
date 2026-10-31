@@ -1,31 +1,19 @@
 {
-  "name": "spl-landing-page",
+  "name": "spl-hub",
   "private": true,
-  "version": "1.0.0",
-  "type": "module",
+  "packageManager": "pnpm@10.34.6",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run generate:share-image && tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -b --pretty",
-    "generate:share-image": "node scripts/generate-share-image.mjs",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @spl/landing build && node scripts/espelhar-dist-landing.mjs",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:up": "docker compose up -d db",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@types/node": "^24.0.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "jsdom": "^27.0.0",
-    "sharp": "^0.35.5",
-    "typescript": "~5.9.3",
-    "vite": "^7.0.0",
-    "vitest": "^4.1.6"
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "husky": "^9.1.7",
+    "typescript": "^5.9.3"
   }
 }

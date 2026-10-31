@@ -5,6 +5,9 @@ on:
     branches:
       - main
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - blog-publicado
 
 permissions:
   contents: read
@@ -21,21 +24,29 @@ jobs:
     steps:
       - name: Baixar o repositório
         uses: actions/checkout@v6
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
       - name: Configurar Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
       - name: Instalar dependências
-        run: npm ci
-      - name: Verificar tipos
-        run: npm run typecheck
-      - name: Executar testes
-        run: npm test
-      - name: Compilar aplicação
-        run: npm run build
+        run: pnpm install --frozen-lockfile
+      - name: Verificar tipos da landing
+        run: pnpm --filter @spl/landing typecheck
+      - name: Executar testes da landing
+        run: pnpm --filter @spl/landing test
+      - name: Compilar a landing
+        run: pnpm build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - name: Conferir o CNAME de produção
+        run: test "$(tr -d '[:space:]' < dist/CNAME)" = "splsolucoes.com"
       - name: Enviar artefato do site
         uses: actions/upload-pages-artifact@v4
         with:

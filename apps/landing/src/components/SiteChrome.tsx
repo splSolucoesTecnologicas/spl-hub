@@ -31,6 +31,7 @@ export function SiteFooter() {
           <a href="#parceiros">Parceiros</a>
           <a href="#processo">Como jogamos</a>
           <a href="#contato">Contato</a>
+          <a href="/blog">Blog</a>
         </nav>
         <div className="foot-note">
           <span>© 2026 SPL Soluções Tecnológicas LTDA. Todos os direitos reservados.</span>
