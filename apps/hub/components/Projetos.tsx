@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type { ClienteDTO, ProjetoDTO, UsuarioDTO } from '@spl/contracts';
-import { api, type Pagina } from '@/lib/api';
+import { api, type Pagina, type TarefaDTO } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
 import { pode } from '@/lib/pode';
 import { Quadro } from './Quadro';
@@ -286,7 +286,8 @@ export function DetalheProjeto() {
   const [clientes, setClientes] = useState<ClienteDTO[]>([]);
   const [tarefasAbertas, setTarefasAbertas] = useState(0);
   const [emRevisao, setEmRevisao] = useState(0);
-  const [aba, setAba] = useState<'geral' | 'quadro' | 'admin' | 'clientes' | 'repo'>('geral');
+  const [tarefasComIssue, setTarefasComIssue] = useState<TarefaDTO[]>([]);
+  const [aba, setAba] = useState<'geral' | 'quadro' | 'issues' | 'admin' | 'clientes' | 'repo'>('geral');
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [marco, setMarco] = useState('');
   const [confirmar, setConfirmar] = useState(false);
@@ -299,9 +300,10 @@ export function DetalheProjeto() {
     setPessoas((await api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100')).data);
     if (pode(usuario, 'clientes', 'so_frentes')) setClientes((await api<Pagina<ClienteDTO>>('/clientes?limite=100')).data);
     if (pode(usuario, 'tarefas', 'ler')) {
-      const quadro = await api<Pagina<{ coluna: string }>>(`/tarefas?projetoId=${id}&limite=100`);
+      const quadro = await api<Pagina<TarefaDTO>>(`/tarefas?projetoId=${id}&limite=100`);
       setTarefasAbertas(quadro.data.filter((item) => item.coluna !== 'feito').length);
       setEmRevisao(quadro.data.filter((item) => item.coluna === 'revisao').length);
+      setTarefasComIssue(quadro.data.filter((item) => item.githubIssueNumero != null));
     }
   }
   useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, [id]);
@@ -352,7 +354,7 @@ export function DetalheProjeto() {
       </div>
       <p><Link href="/projetos">← Projetos</Link></p>
       <div className="abas" style={{ margin: '12px 0' }}>
-        {([['geral', 'Visão geral'], ['quadro', 'Quadro'], ['admin', 'Admin'], ['clientes', 'Clientes'], ['repo', 'Repo']] as const).map(([chave, nome]) => (
+        {([['geral', 'Visão geral'], ['quadro', 'Quadro'], ['issues', 'Issues'], ['admin', 'Admin'], ['clientes', 'Clientes'], ['repo', 'Repo']] as const).map(([chave, nome]) => (
           <button key={chave} type="button" className={aba === chave ? 'ativo' : undefined} onClick={() => setAba(chave)}>{nome}</button>
         ))}
       </div>
@@ -401,6 +403,21 @@ export function DetalheProjeto() {
         </>
       )}
       {aba === 'quadro' && <Quadro projetoId={id} embutido />}
+      {aba === 'issues' && (
+        <article className="painel">
+          <h2>Issues do GitHub</h2>
+          {tarefasComIssue.length === 0 && <p className="aviso">Nenhuma issue vinculada ainda. Issues aparecem aqui quando a tarefa é criada ou sincronizada com o repositório.</p>}
+          {tarefasComIssue.map((tarefa) => (
+            <div className="decisao" key={tarefa.id}>
+              <span>{tarefa.titulo}</span>
+              <small>
+                {tarefa.coluna === 'a_fazer' ? 'A fazer' : tarefa.coluna === 'fazendo' ? 'Fazendo' : tarefa.coluna === 'revisao' ? 'Revisão' : 'Feito'}
+                {projeto.repositorio && <> · <a href={`https://github.com/${projeto.repositorio}/issues/${tarefa.githubIssueNumero}`} target="_blank" rel="noreferrer">#{tarefa.githubIssueNumero}</a></>}
+              </small>
+            </div>
+          ))}
+        </article>
+      )}
       {aba === 'admin' && (
         <article className="painel">
           <h2>Admin</h2>

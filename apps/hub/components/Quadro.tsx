@@ -90,7 +90,11 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
                   <b>{tarefa.titulo}</b>
                   <div className="meta">
                     <span className="chip" style={{ color: COR[tarefa.produto] }}>{tarefa.produto}</span>
-                    {tarefa.referencia && <span>{tarefa.referencia}</span>}
+                    {tarefa.referencia && (
+                      /^[\w.-]+\/[\w.-]+#\d+$/.test(tarefa.referencia)
+                        ? <a href={`https://github.com/${tarefa.referencia.replace('#', '/issues/')}`} target="_blank" rel="noreferrer">{tarefa.referencia}</a>
+                        : <span>{tarefa.referencia}</span>
+                    )}
                     {tarefa.atrasada && tarefa.prazo && <span className="atrasada">Atrasada {new Date(tarefa.prazo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
                     <button className="btn fantasma" type="button" onClick={() => setEditando(tarefa)}>Editar</button>
                     <button className="btn perigo" type="button" onClick={() => setExcluindo(tarefa)}>Excluir</button>
