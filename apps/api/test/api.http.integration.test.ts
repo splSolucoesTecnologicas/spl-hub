@@ -60,6 +60,14 @@ describe('API HTTP', () => {
     expect(resposta.statusCode).toBe(401);
   });
 
+  it('expõe o status da integração GitHub pro usuário logado', async () => {
+    const resposta = await ctx.app.inject({ method: 'GET', url: '/github/status', headers: { authorization: `Bearer ${ctx.token}` } });
+    expect(resposta.statusCode).toBe(200);
+    expect(resposta.json()).toEqual({ conectado: false, organizacao: null });
+    const semSessao = await ctx.app.inject({ method: 'GET', url: '/github/status' });
+    expect(semSessao.statusCode).toBe(401);
+  });
+
   it('lista usuários da Thumdra pelo fake quando o admin tem permissão', async () => {
     const resposta = await ctx.app.inject({ method: 'GET', url: '/integracoes/thumdra/usuarios', headers: { authorization: `Bearer ${ctx.token}` } });
     expect(resposta.statusCode).toBe(200);

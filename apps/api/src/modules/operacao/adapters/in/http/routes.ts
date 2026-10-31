@@ -77,6 +77,16 @@ export function operacaoRoutes(casos: CasosDeUsoOperacao, acesso: CasosDeUsoAces
       return reply.code(204).send();
     });
 
+    app.get('/github/status', async (req) => {
+      await atorDe(req);
+      return casos.statusGithub();
+    });
+    app.get('/projetos/github/repositorios', async (req) => casos.listarRepositoriosGithub(await atorDe(req)));
+    app.get<{ Params: { owner: string; repo: string } }>('/projetos/github/repositorios/:owner/:repo/boards', async (req) =>
+      casos.listarProjetosGithub(await atorDe(req), req.params.owner, req.params.repo));
+    app.get<{ Params: { owner: string; repo: string; numero: string } }>('/projetos/github/repositorios/:owner/:repo/boards/:numero/opcoes-status', async (req) =>
+      casos.listarOpcoesStatusGithub(await atorDe(req), req.params.owner, req.params.repo, Number(req.params.numero)));
+
     app.get('/decisoes', async (req) => ({ data: (await casos.listarDecisoes(await atorDe(req))).map(decisaoDto) }));
     app.post('/decisoes', async (req, reply) => {
       const body = CriarDecisaoSchema.parse(req.body);
