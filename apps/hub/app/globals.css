@@ -122,6 +122,12 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .coluna-dir { display: flex; flex-direction: column; gap: 12px; }
 .painel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 14px 10px; }
 .painel h2 { margin: 0 0 10px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+.painel-oculto { opacity: .45; }
+.card-controles { display: flex; gap: 2px; align-items: center; }
+.card-controles button { background: transparent; border: 0; color: var(--grey); cursor: pointer; font-size: 11px; padding: 3px 6px; border-radius: 6px; line-height: 1; }
+.card-controles button:hover:not(:disabled) { color: var(--off); background: #1c201d; }
+.card-controles button:disabled { opacity: .3; cursor: not-allowed; }
+.sidebar-reabrir { position: absolute; z-index: 2; top: 72px; right: 14px; border: 1px solid var(--line); background: rgba(10, 12, 14, .82); color: var(--off); border-radius: 12px; padding: 8px 12px; cursor: pointer; }
 .pessoa, .cliente, .tarefa-mini, .decisao { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid #222622; font-size: 13px; }
 .pessoa small, .cliente small, .tarefa-mini small { color: var(--grey); }
 .barra { height: 6px; background: #222; border-radius: 99px; overflow: hidden; margin: 6px 0 12px; }
@@ -171,6 +177,7 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .flutua { background: rgba(10, 12, 14, .82); backdrop-filter: blur(10px); border-radius: 16px; }
 .flutua-topo { position: absolute; z-index: 2; top: 72px; left: 18px; right: 340px; padding: 12px 14px; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
 .flutua-topo h1 { font-size: 34px; margin-bottom: 8px; }
+.topo-cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .flutua-dir { position: absolute; z-index: 2; top: 72px; right: 14px; width: 312px; bottom: 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px; }
 .flutua-dir .painel { background: rgba(12, 14, 14, .7); border-color: transparent; }
 .zoom-controles { position: absolute; z-index: 3; left: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 6px; }
@@ -233,6 +240,8 @@ input[type="checkbox"]:checked::before { transform: scale(1); }
 input[type="checkbox"]:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
+.seletor-cidade-wrap { display: flex; flex-direction: column; gap: 8px; }
+.seletor-busca-resultados { max-height: 260px; border: 1px solid var(--line); border-radius: 14px; padding: 6px; background: #0a0c0a; }
 .seletor-cidade { display: grid; grid-template-columns: 1fr 220px; gap: 12px; background: #0a0c0a; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
 .seletor-cidade svg { width: 100%; height: 260px; display: block; }
 .estado-sel { fill: #0a141c; stroke: var(--mapa-linha); stroke-width: 1.15; cursor: pointer; transition: fill .15s ease; }

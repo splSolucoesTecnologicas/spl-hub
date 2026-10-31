@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AtualizarUsuarioSchema, CriarUsuarioSchema, LoginSchema, TotpSchema, type UsuarioDTO } from '@spl/contracts';
+import { AtualizarUsuarioSchema, CriarUsuarioSchema, LoginSchema, TotpSchema, type LayoutInicioDTO, type UsuarioDTO } from '@spl/contracts';
 import { ErroDeDominio } from '../../../../../shared/domain/erro-de-dominio.js';
 import type { Modulo, Permissoes } from '../../../domain/usuario.js';
 import { papeisDe, type Usuario } from '../../../domain/usuario.js';
@@ -9,7 +9,7 @@ export function usuarioDto(usuario: Usuario): UsuarioDTO {
   return {
     id: usuario.id, nome: usuario.nome, email: usuario.email, vinculo: usuario.vinculo, area: usuario.area,
     papeis: papeisDe(usuario), cidade: usuario.cidade, uf: usuario.uf, latitude: usuario.latitude, longitude: usuario.longitude, ativo: usuario.ativo, admin: usuario.admin,
-    totpAtivo: usuario.totpAtivo, permissoes: usuario.permissoes, frentes: [...usuario.frentes], exemplo: usuario.exemplo,
+    totpAtivo: usuario.totpAtivo, permissoes: usuario.permissoes, layoutInicio: usuario.layoutInicio as LayoutInicioDTO | null, frentes: [...usuario.frentes], exemplo: usuario.exemplo,
     ultimoAcesso: usuario.ultimoAcesso ? usuario.ultimoAcesso.toISOString() : null,
   };
 }

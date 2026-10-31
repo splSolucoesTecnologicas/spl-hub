@@ -27,6 +27,14 @@ export const PermissaoModuloSchema = z.object({
   extraAte: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 }).openapi('PermissaoModulo');
 
+export const LayoutInicioSchema = z.object({
+  ordem: z.array(z.string()),
+  ocultos: z.array(z.string()),
+  minimizados: z.array(z.string()),
+  sidebarRecolhida: z.boolean(),
+}).openapi('LayoutInicio');
+export type LayoutInicioDTO = z.infer<typeof LayoutInicioSchema>;
+
 export const UsuarioSchema = z.object({
   id: z.string().uuid(),
   nome: z.string(),
@@ -42,6 +50,7 @@ export const UsuarioSchema = z.object({
   admin: z.boolean(),
   totpAtivo: z.boolean(),
   permissoes: z.record(ModuloSchema, PermissaoModuloSchema),
+  layoutInicio: LayoutInicioSchema.nullable(),
   frentes: z.array(z.string()),
   exemplo: z.boolean(),
   ultimoAcesso: z.string().datetime().nullable(),
@@ -79,6 +88,7 @@ export const AtualizarUsuarioSchema = z.object({
   permissoes: z.record(ModuloSchema, PermissaoModuloSchema).optional(),
   ativo: z.boolean().optional(),
   admin: z.boolean().optional(),
+  layoutInicio: LayoutInicioSchema.nullable().optional(),
 }).openapi('AtualizarUsuario');
 
 export const CriarUsuarioSchema = z.object({

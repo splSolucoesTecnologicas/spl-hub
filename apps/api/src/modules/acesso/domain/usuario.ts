@@ -63,6 +63,7 @@ export interface UsuarioProps {
   ativo: boolean;
   admin: boolean;
   permissoes: Permissoes;
+  layoutInicio: unknown | null;
   frentes: string[];
   exemplo: boolean;
   tentativas: number;
@@ -101,6 +102,7 @@ export class Usuario {
       ativo: true,
       admin: input.admin ?? false,
       permissoes,
+      layoutInicio: null,
       frentes: input.frentes ?? [],
       exemplo: input.exemplo ?? false,
       tentativas: 0,
@@ -180,6 +182,10 @@ export class Usuario {
     this.props.admin = admin;
   }
 
+  definirLayoutInicio(layout: unknown | null): void {
+    this.props.layoutInicio = layout;
+  }
+
   private validarCoordenadas(): void {
     const { latitude, longitude } = this.props;
     if (latitude == null && longitude == null) return;
@@ -228,6 +234,7 @@ export class Usuario {
   get ativo() { return this.props.ativo; }
   get admin() { return this.props.admin; }
   get permissoes() { return this.props.permissoes; }
+  get layoutInicio() { return this.props.layoutInicio; }
   get frentes() { return this.props.frentes; }
   get exemplo() { return this.props.exemplo; }
   get tentativas() { return this.props.tentativas; }

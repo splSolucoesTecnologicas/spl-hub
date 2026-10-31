@@ -50,4 +50,12 @@ describe('Casos de uso de acesso', () => {
 
     await expect(acesso.atualizarUsuario(lucas, admin.id, { cidade: 'São Paulo' })).rejects.toThrow(/admin/);
   });
+
+  it('usuário salva o próprio layout do Início', async () => {
+    const { acesso } = memoria();
+    const lucas = await acesso.criarUsuario({ nome: 'Lucas', email: 'lucas@splsolucoes.com', senha: 'SplExemplo#2026', vinculo: 'colaborador', area: 'dev' });
+    const layout = { ordem: ['equipe', 'clientes'], ocultos: ['decisoes'], minimizados: [], sidebarRecolhida: false };
+    const atualizado = await acesso.atualizarUsuario(lucas, lucas.id, { layoutInicio: layout });
+    expect(atualizado.layoutInicio).toEqual(layout);
+  });
 });

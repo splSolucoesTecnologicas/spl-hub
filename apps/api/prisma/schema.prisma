@@ -23,6 +23,7 @@ model Usuario {
   ativo        Boolean   @default(true)
   admin        Boolean   @default(false)
   permissoes   Json
+  layoutInicio Json?
   frentes      String[]
   exemplo      Boolean   @default(false)
   tentativas   Int       @default(0)

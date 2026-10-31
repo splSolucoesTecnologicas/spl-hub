@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { paginar } from '../../../../shared/application/paginar.js';
 import { DesafioTotp, Sessao, SolicitacaoAcesso, type AuditoriaProps } from '../../domain/sessao.js';
 import { Usuario, type Permissoes, type UsuarioProps } from '../../domain/usuario.js';
@@ -7,21 +7,22 @@ import type { AuditoriaRepository, DesafioRepository, SessaoRepository, Solicita
 function usuarioDe(row: {
   id: string; nome: string; email: string; senhaHash: string; totpSegredo: string | null; totpAtivo: boolean;
   vinculo: string; area: string; cidade: string | null; uf: string | null; latitude: number | null; longitude: number | null; ativo: boolean; admin: boolean;
-  permissoes: unknown; frentes: string[]; exemplo: boolean; tentativas: number; bloqueadoAte: Date | null;
+  permissoes: unknown; layoutInicio: unknown; frentes: string[]; exemplo: boolean; tentativas: number; bloqueadoAte: Date | null;
   ultimoAcesso: Date | null; criadoEm: Date;
 }): Usuario {
-  return Usuario.restaurar({ ...row, vinculo: row.vinculo as UsuarioProps['vinculo'], area: row.area as UsuarioProps['area'], permissoes: row.permissoes as Permissoes });
+  return Usuario.restaurar({ ...row, vinculo: row.vinculo as UsuarioProps['vinculo'], area: row.area as UsuarioProps['area'], permissoes: row.permissoes as Permissoes, layoutInicio: row.layoutInicio ?? null });
 }
 
 export class PrismaUsuarioRepository implements UsuarioRepository {
   constructor(private readonly db: PrismaClient) {}
   async salvar(usuario: Usuario) {
-    const { id, permissoes, ...resto } = usuario.toJSON();
-    const json = permissoes as unknown as Prisma.InputJsonValue;
+    const { id, permissoes, layoutInicio, ...resto } = usuario.toJSON();
+    const permissoesJson = permissoes as unknown as Prisma.InputJsonValue;
+    const layoutJson = layoutInicio === null ? Prisma.JsonNull : (layoutInicio as Prisma.InputJsonValue);
     await this.db.usuario.upsert({
       where: { id },
-      create: { id, ...resto, permissoes: json },
-      update: { ...resto, permissoes: json },
+      create: { id, ...resto, permissoes: permissoesJson, layoutInicio: layoutJson },
+      update: { ...resto, permissoes: permissoesJson, layoutInicio: layoutJson },
     });
   }
   async buscarPorId(id: string) { const row = await this.db.usuario.findUnique({ where: { id } }); return row ? usuarioDe(row) : null; }

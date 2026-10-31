@@ -96,7 +96,7 @@ export function criarCasosDeUsoAcesso(deps: {
     async atualizarUsuario(ator: Usuario, id: string, input: {
       nome?: string; vinculo?: Vinculo; area?: Area; cidade?: string | null; uf?: string | null;
       latitude?: number | null; longitude?: number | null; frentes?: string[];
-      permissoes?: Permissoes; ativo?: boolean; admin?: boolean;
+      permissoes?: Permissoes; ativo?: boolean; admin?: boolean; layoutInicio?: unknown | null;
     }) {
       const souEu = ator.id === id;
       if (!ator.admin && !souEu) throw new ErroDeDominio('sem_permissao', 'Só admin edita outras pessoas');
@@ -113,6 +113,7 @@ export function criarCasosDeUsoAcesso(deps: {
       alvo.alterarPerfil(entrada);
       if (ator.admin && input.admin !== undefined) alvo.definirAdmin(input.admin);
       if (ator.admin && input.permissoes) alvo.definirPermissoes(input.permissoes);
+      if (souEu && input.layoutInicio !== undefined) alvo.definirLayoutInicio(input.layoutInicio);
       await usuarios.salvar(alvo);
       await auditoria.registrar({
         id: ids.novo(), atorId: ator.id, acao: 'atualizar_usuario', alvo: alvo.id,
