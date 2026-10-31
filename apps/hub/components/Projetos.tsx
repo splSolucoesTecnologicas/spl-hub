@@ -45,6 +45,8 @@ type Rascunho = {
   repositorio: string;
   quadroUrl: string;
   adminUrl: string;
+  githubProjectNumero: string;
+  githubColunaMap: Record<string, string>;
   progresso: string;
   progressoRotulo: string;
   responsaveis: Record<string, string[]>;
@@ -53,6 +55,7 @@ type Rascunho = {
 
 const base = (): Rascunho => ({
   nome: '', tipo: 'produto', status: 'piloto', descricao: '', cor: '#4c8dff', repositorio: '', quadroUrl: '', adminUrl: '',
+  githubProjectNumero: '', githubColunaMap: {},
   progresso: '0', progressoRotulo: '', responsaveis: {}, clienteIds: [],
 });
 
@@ -64,6 +67,7 @@ function deProjeto(projeto: ProjetoDTO): Rascunho {
   return {
     id: projeto.id, nome: projeto.nome, tipo: projeto.tipo, status: projeto.status, descricao: projeto.descricao, cor: projeto.cor,
     repositorio: projeto.repositorio ?? '', quadroUrl: projeto.quadroUrl ?? '', adminUrl: projeto.adminUrl ?? '',
+    githubProjectNumero: projeto.githubProjectNumero != null ? String(projeto.githubProjectNumero) : '', githubColunaMap: projeto.githubColunaMap ?? {},
     progresso: String(projeto.progresso), progressoRotulo: projeto.progressoRotulo, responsaveis, clienteIds: [...projeto.clienteIds],
   };
 }
@@ -73,6 +77,8 @@ function corpoDe(rascunho: Rascunho) {
   return {
     nome: rascunho.nome, tipo: rascunho.tipo, status: rascunho.status, descricao: rascunho.descricao, cor: rascunho.cor,
     repositorio: rascunho.repositorio || null, quadroUrl: rascunho.quadroUrl || null, adminUrl: rascunho.adminUrl || null,
+    githubProjectNumero: rascunho.githubProjectNumero ? Number(rascunho.githubProjectNumero) : null,
+    githubColunaMap: Object.keys(rascunho.githubColunaMap).length === 4 ? rascunho.githubColunaMap : null,
     progresso: Number(rascunho.progresso || 0), progressoRotulo: rascunho.progressoRotulo, responsaveis, clienteIds: rascunho.clienteIds,
   };
 }
@@ -167,6 +173,48 @@ export function ListaProjetos() {
   );
 }
 
+const COLUNAS_MAPA: { id: 'a_fazer' | 'fazendo' | 'revisao' | 'feito'; nome: string }[] = [
+  { id: 'a_fazer', nome: 'A fazer' }, { id: 'fazendo', nome: 'Fazendo' }, { id: 'revisao', nome: 'Revisão' }, { id: 'feito', nome: 'Feito' },
+];
+
+function VinculoGithub({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
+  const [boards, setBoards] = useState<{ numero: number; titulo: string }[]>([]);
+  const [opcoes, setOpcoes] = useState<{ id: string; nome: string }[]>([]);
+  const [owner, repo] = rascunho.repositorio.split('/');
+
+  useEffect(() => {
+    void api<{ numero: number; titulo: string }[]>(`/projetos/github/repositorios/${owner}/${repo}/boards`).then(setBoards).catch(() => setBoards([]));
+  }, [owner, repo]);
+
+  useEffect(() => {
+    if (!rascunho.githubProjectNumero) { setOpcoes([]); return; }
+    void api<{ id: string; nome: string }[]>(`/projetos/github/repositorios/${owner}/${repo}/boards/${rascunho.githubProjectNumero}/opcoes-status`).then(setOpcoes).catch(() => setOpcoes([]));
+  }, [owner, repo, rascunho.githubProjectNumero]);
+
+  return (
+    <>
+      <label>Board do GitHub Projects
+        <select className="campo" value={rascunho.githubProjectNumero} onChange={(e) => setRascunho({ ...rascunho, githubProjectNumero: e.target.value })}>
+          <option value="">Sem board vinculado</option>
+          {boards.map((board) => <option key={board.numero} value={board.numero}>{board.titulo}</option>)}
+        </select>
+      </label>
+      {opcoes.length > 0 && (
+        <div className="linha">
+          {COLUNAS_MAPA.map((coluna) => (
+            <label key={coluna.id}>{coluna.nome}
+              <select className="campo" value={rascunho.githubColunaMap[coluna.id] ?? ''} onChange={(e) => setRascunho({ ...rascunho, githubColunaMap: { ...rascunho.githubColunaMap, [coluna.id]: e.target.value } })}>
+                <option value="">—</option>
+                {opcoes.map((opcao) => <option key={opcao.id} value={opcao.id}>{opcao.nome}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function FormularioProjeto({ rascunho, setRascunho, pessoas, clientes, erro, onSalvar, onFechar }: {
   rascunho: Rascunho;
   setRascunho: (valor: Rascunho) => void;
@@ -197,6 +245,7 @@ function FormularioProjeto({ rascunho, setRascunho, pessoas, clientes, erro, onS
         <label>Descrição<input className="campo" value={rascunho.descricao} onChange={(e) => setRascunho({ ...rascunho, descricao: e.target.value })} placeholder="Uma linha sobre o projeto" /></label>
         <label>Cor no mapa<input className="campo" type="color" value={rascunho.cor} onChange={(e) => setRascunho({ ...rascunho, cor: e.target.value })} /></label>
         <label>Repositório GitHub<input className="campo" value={rascunho.repositorio} onChange={(e) => setRascunho({ ...rascunho, repositorio: e.target.value })} placeholder="dono/repositorio" /></label>
+        {/^[\w.-]+\/[\w.-]+$/.test(rascunho.repositorio) && <VinculoGithub rascunho={rascunho} setRascunho={setRascunho} />}
         <label>Link do GitHub Project / quadro<input className="campo" value={rascunho.quadroUrl} onChange={(e) => setRascunho({ ...rascunho, quadroUrl: e.target.value })} placeholder="https://" /></label>
         <label>URL do admin<input className="campo" value={rascunho.adminUrl} onChange={(e) => setRascunho({ ...rascunho, adminUrl: e.target.value })} placeholder="https://" /></label>
         <div className="linha">
