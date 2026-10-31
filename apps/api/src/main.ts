@@ -16,7 +16,14 @@ import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoR
 import { garantirAdminInicial, semearExemplo } from './seed/exemplo.js';
 
 function chavePrivadaGithub(): string | undefined {
-  if (process.env.GITHUB_APP_PRIVATE_KEY_PATH) return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
+  if (process.env.GITHUB_APP_PRIVATE_KEY_PATH) {
+    try {
+      return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
+    } catch (erro) {
+      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): caindo para o adapter fake.`, erro);
+      return undefined;
+    }
+  }
   return process.env.GITHUB_APP_PRIVATE_KEY;
 }
 
