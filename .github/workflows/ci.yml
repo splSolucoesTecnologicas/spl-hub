@@ -1,0 +1,23 @@
+name: Verificar API e hub
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @spl/contracts typecheck
+      - run: pnpm --filter @spl/api test
+      - run: pnpm --filter @spl/api typecheck
+      - run: pnpm --filter @spl/hub typecheck

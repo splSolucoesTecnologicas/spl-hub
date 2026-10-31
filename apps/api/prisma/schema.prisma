@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           String    @id @db.Uuid
+  nome         String
+  email        String    @unique
+  senhaHash    String
+  totpSegredo  String?
+  totpAtivo    Boolean   @default(false)
+  vinculo      String
+  area         String
+  cidade       String?
+  uf           String?
+  ativo        Boolean   @default(true)
+  admin        Boolean   @default(false)
+  permissoes   Json
+  frentes      String[]
+  exemplo      Boolean   @default(false)
+  tentativas   Int       @default(0)
+  bloqueadoAte DateTime?
+  ultimoAcesso DateTime?
+  criadoEm     DateTime  @default(now())
+  sessoes      Sessao[]
+  @@map("usuarios")
+}
+
+model Sessao {
+  id        String   @id @db.Uuid
+  usuarioId String   @db.Uuid
+  tokenHash String   @unique
+  expiraEm  DateTime
+  criadaEm  DateTime @default(now())
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("sessoes")
+}
+
+model DesafioTotp {
+  id        String   @id @db.Uuid
+  usuarioId String   @db.Uuid
+  expiraEm  DateTime
+  @@map("desafios_totp")
+}
+
+model SolicitacaoAcesso {
+  id        String   @id @db.Uuid
+  usuarioId String   @db.Uuid
+  modulo    String
+  nivel     String
+  motivo    String
+  status    String
+  exemplo   Boolean  @default(false)
+  criadaEm  DateTime @default(now())
+  @@map("solicitacoes_acesso")
+}
+
+model Auditoria {
+  id       String   @id @db.Uuid
+  atorId   String   @db.Uuid
+  acao     String
+  alvo     String
+  detalhe  String
+  criadaEm DateTime @default(now())
+  @@map("auditoria")
+}
+
+model Tarefa {
+  id             String    @id @db.Uuid
+  titulo         String
+  coluna         String
+  produto        String
+  responsavelId  String?   @db.Uuid
+  observadorIds  String[]
+  referencia     String?
+  pullRequest    String?
+  prazo          DateTime?
+  exemplo        Boolean   @default(false)
+  sincronizadaEm DateTime?
+  criadaEm       DateTime  @default(now())
+  atualizadaEm   DateTime  @updatedAt
+  @@map("tarefas")
+}
+
+model Noticia {
+  id          String    @id @db.Uuid
+  slug        String    @unique
+  titulo      String
+  resumo      String
+  corpo       String
+  publicada   Boolean   @default(false)
+  publicadaEm DateTime?
+  autorNome   String
+  exemplo     Boolean   @default(false)
+  criadaEm    DateTime  @default(now())
+  @@map("noticias")
+}
