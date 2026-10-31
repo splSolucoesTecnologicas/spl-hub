@@ -75,7 +75,8 @@ export class AppGitHubProjetos implements GitHubProjetos {
     try {
       const dados = await this.cliente.rest<{ repositories: { owner: { login: string } }[] }>('/installation/repositories?per_page=1');
       return { conectado: true, organizacao: dados.repositories[0]?.owner.login ?? null };
-    } catch {
+    } catch (erro) {
+      console.error('GitHub status(): falha ao confirmar a conexão com o App:', erro);
       return { conectado: false, organizacao: null };
     }
   }
