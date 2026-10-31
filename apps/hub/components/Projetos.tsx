@@ -177,6 +177,29 @@ const COLUNAS_MAPA: { id: 'a_fazer' | 'fazendo' | 'revisao' | 'feito'; nome: str
   { id: 'a_fazer', nome: 'A fazer' }, { id: 'fazendo', nome: 'Fazendo' }, { id: 'revisao', nome: 'Revisão' }, { id: 'feito', nome: 'Feito' },
 ];
 
+function RepositorioGithubInput({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
+  const [repos, setRepos] = useState<{ owner: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    void api<{ owner: string; nome: string }[]>('/projetos/github/repositorios').then(setRepos).catch(() => setRepos([]));
+  }, []);
+
+  return (
+    <label>Repositório GitHub
+      <input
+        className="campo"
+        list="repos-github-lista"
+        value={rascunho.repositorio}
+        onChange={(e) => setRascunho({ ...rascunho, repositorio: e.target.value })}
+        placeholder={repos.length ? 'Escolha ou digite dono/repositorio' : 'dono/repositorio'}
+      />
+      <datalist id="repos-github-lista">
+        {repos.map((repo) => <option key={`${repo.owner}/${repo.nome}`} value={`${repo.owner}/${repo.nome}`} />)}
+      </datalist>
+    </label>
+  );
+}
+
 function VinculoGithub({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
   const [boards, setBoards] = useState<{ numero: number; titulo: string }[]>([]);
   const [opcoes, setOpcoes] = useState<{ id: string; nome: string }[]>([]);
@@ -244,7 +267,7 @@ function FormularioProjeto({ rascunho, setRascunho, pessoas, clientes, erro, onS
         </div>
         <label>Descrição<input className="campo" value={rascunho.descricao} onChange={(e) => setRascunho({ ...rascunho, descricao: e.target.value })} placeholder="Uma linha sobre o projeto" /></label>
         <label>Cor no mapa<input className="campo" type="color" value={rascunho.cor} onChange={(e) => setRascunho({ ...rascunho, cor: e.target.value })} /></label>
-        <label>Repositório GitHub<input className="campo" value={rascunho.repositorio} onChange={(e) => setRascunho({ ...rascunho, repositorio: e.target.value })} placeholder="dono/repositorio" /></label>
+        <RepositorioGithubInput rascunho={rascunho} setRascunho={setRascunho} />
         {/^[\w.-]+\/[\w.-]+$/.test(rascunho.repositorio) && <VinculoGithub rascunho={rascunho} setRascunho={setRascunho} />}
         <label>Link do GitHub Project / quadro<input className="campo" value={rascunho.quadroUrl} onChange={(e) => setRascunho({ ...rascunho, quadroUrl: e.target.value })} placeholder="https://" /></label>
         <label>URL do admin<input className="campo" value={rascunho.adminUrl} onChange={(e) => setRascunho({ ...rascunho, adminUrl: e.target.value })} placeholder="https://" /></label>
