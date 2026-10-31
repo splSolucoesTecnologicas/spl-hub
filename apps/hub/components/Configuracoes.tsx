@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import type { CidadeGeo } from '@spl/contracts';
+import { useEffect, useState } from 'react';
+import type { CidadeGeo, GithubStatusDTO } from '@spl/contracts';
 import { api } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
 import { SeletorCidade } from './SeletorCidade';
@@ -12,6 +12,11 @@ export function PaginaConfiguracoes() {
   const [editandoCidade, setEditandoCidade] = useState(false);
   const [aviso, setAviso] = useState('');
   const [erro, setErro] = useState('');
+  const [github, setGithub] = useState<GithubStatusDTO | null>(null);
+
+  useEffect(() => {
+    void api<GithubStatusDTO>('/github/status').then(setGithub).catch(() => setGithub({ conectado: false, organizacao: null }));
+  }, []);
 
   async function salvarNome() {
     setErro('');
@@ -60,6 +65,16 @@ export function PaginaConfiguracoes() {
           </button>
         </p>
         {editandoCidade && <SeletorCidade ufInicial={usuario.uf} onEscolher={(cidade) => void escolherCidade(cidade)} />}
+      </article>
+      <article className="painel">
+        <h2>Integração GitHub</h2>
+        {github == null && <p className="aviso">Verificando…</p>}
+        {github && (
+          <p>
+            <span className={`chip ${github.conectado ? 'green' : ''}`}>{github.conectado ? 'Conectada' : 'Não conectada'}</span>
+            {github.conectado && github.organizacao && <span className="aviso"> · organização {github.organizacao}</span>}
+          </p>
+        )}
       </article>
       <article className="painel">
         <span className="chip amber">esboço nesta entrega</span>
