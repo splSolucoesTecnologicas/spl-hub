@@ -1,6 +1,6 @@
 import queenImage from '../../queen.png'
 
-export function HeroSection() {
+export function HeroSection({ mostrarBlog = false }: { mostrarBlog?: boolean }) {
   return (
     <header className="hero" id="top">
       <div className="hero-floor" />
@@ -20,7 +20,7 @@ export function HeroSection() {
         </div>
       </div>
       <div className="hero-side" aria-label="Navegação rápida">
-        <a href="#thumdra">Thumdra</a><a href="#solucoes">Soluções</a><a href="#processo">Como jogamos</a><a href="#abordagem">Como construímos</a><a href="#quem-somos">Quem somos</a><a href="#contato">Contato</a>
+        <a href="#thumdra">Thumdra</a><a href="#solucoes">Soluções</a><a href="#processo">Como jogamos</a><a href="#abordagem">Como construímos</a><a href="#quem-somos">Quem somos</a><a href="#contato">Contato</a>{mostrarBlog && <a href="/blog">Blog</a>}
       </div>
       <div className="scroll-hint" aria-hidden="true" />
     </header>

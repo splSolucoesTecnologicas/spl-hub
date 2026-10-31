@@ -1,15 +1,17 @@
 import { BlogSection } from './blog/BlogSection'
+import { noticiasNoBuild, temBlog, type NoticiaPublica } from './blog/noticias'
 import { ChessProcessSection } from './components/ChessProcessSection'
 import { ApproachSection, ContactSection, ManifestoSection, Marquee, PartnersSection, SolutionsSection, TeamSection, ThumdraSection } from './components/ContentSections'
 import { HeroSection } from './components/HeroSection'
 import { SiteFooter, SiteNavigation } from './components/SiteChrome'
 
-export default function App() {
+export default function App({ noticias = noticiasNoBuild() }: { noticias?: NoticiaPublica[] }) {
+  const mostrarBlog = temBlog(noticias)
   return (
     <>
-      <SiteNavigation />
+      <SiteNavigation mostrarBlog={mostrarBlog} />
       <main>
-        <HeroSection />
+        <HeroSection mostrarBlog={mostrarBlog} />
         <ThumdraSection />
         <SolutionsSection />
         <ChessProcessSection />
@@ -18,10 +20,10 @@ export default function App() {
         <TeamSection />
         <PartnersSection />
         <ManifestoSection />
-        <BlogSection />
+        {mostrarBlog && <BlogSection noticias={noticias} />}
         <ContactSection />
       </main>
-      <SiteFooter />
+      <SiteFooter mostrarBlog={mostrarBlog} />
     </>
   )
 }

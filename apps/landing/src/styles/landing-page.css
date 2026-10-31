@@ -16,6 +16,10 @@ section { position: relative; padding: 130px 0; }
 nav#nav { position: fixed; z-index: 100; top: 0; right: 0; left: 0; border-bottom: 1px solid transparent; background: rgba(5,6,5,.6); backdrop-filter: blur(14px); transition: border-color .4s, background .4s; }
 nav#nav.scrolled { border-bottom-color: var(--line); background: rgba(5,6,5,.85); }
 .nav-inner { display: flex; max-width: 1240px; align-items: center; justify-content: space-between; margin: 0 auto; padding: 18px 32px; }
+.nav-actions { display: flex; align-items: center; gap: 22px; }
+.nav-blog { color: var(--off); font-size: 14px; font-weight: 600; }
+.nav-blog:hover { color: var(--green); }
+.pagina-simples { padding: 160px 0 80px; }
 .brand { display: flex; align-items: center; gap: 13px; }
 .brand svg { width: auto; }
 .brand-txt { line-height: 1.05; }

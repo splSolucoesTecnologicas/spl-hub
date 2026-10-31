@@ -1,24 +1,27 @@
 import { usePageInteractions } from '../hooks/usePageInteractions'
 import { Brand } from './Brand'
 
-export function SiteNavigation() {
+export function SiteNavigation({ mostrarBlog = false }: { mostrarBlog?: boolean }) {
   const isScrolled = usePageInteractions()
 
   return (
     <nav id="nav" className={isScrolled ? 'scrolled' : undefined}>
       <div className="nav-inner">
         <Brand />
+        <div className="nav-actions">
+        {mostrarBlog && <a className="nav-blog" href="/blog">Blog</a>}
         <a className="btn" href="https://wa.me/5562994614940" target="_blank" rel="noopener noreferrer">
           <span className="btn-full">Falar sobre um projeto</span>
           <span className="btn-short">Contato</span>
           <span className="arr" aria-hidden="true">→</span>
         </a>
+        </div>
       </div>
     </nav>
   )
 }
 
-export function SiteFooter() {
+export function SiteFooter({ mostrarBlog = false }: { mostrarBlog?: boolean }) {
   return (
     <footer>
       <div className="wrap foot-grid">
@@ -31,7 +34,7 @@ export function SiteFooter() {
           <a href="#parceiros">Parceiros</a>
           <a href="#processo">Como jogamos</a>
           <a href="#contato">Contato</a>
-          <a href="/blog">Blog</a>
+          {mostrarBlog && <a href="/blog">Blog</a>}
         </nav>
         <div className="foot-note">
           <span>© 2026 SPL Soluções Tecnológicas LTDA. Todos os direitos reservados.</span>

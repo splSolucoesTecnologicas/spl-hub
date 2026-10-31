@@ -45,7 +45,7 @@ Portas locais, sem Traefik: landing `8080`, hub `3000` (caminho `/hub`), API `33
 
 Hoje a landing de produção continua no **GitHub Pages** (workflow `.github/workflows/deploy.yml`, branch `main`, domínio `splsolucoes.com`). O `pnpm build` gera `./dist` com o `CNAME`. O workflow recusa o artefato se o CNAME não for `splsolucoes.com`. Nada disso muda até o DNS sair do Pages.
 
-O blog é buscado **no build** (`apps/landing/scripts/buscar-noticias.mjs`) e gravado no JS e no `index.html`. Sem a variável `VITE_API_URL`, a seção sai vazia e o site no ar segue igual. O workflow também escuta `workflow_dispatch` e `repository_dispatch` `blog-publicado`. A API só pede esse rebuild se `PAGES_DISPATCH_TOKEN` e `PAGES_DISPATCH_REPOSITORIO` existirem.
+O blog é buscado **no build** (`apps/landing/scripts/buscar-noticias.mjs`). Sem notícia publicada, ou se a API não responde, a landing não mostra seção, links nem `/blog`. Com pelo menos uma notícia, o rebuild coloca tudo no ar. O workflow também escuta `workflow_dispatch` e `repository_dispatch` `blog-publicado`. A API só pede esse rebuild se `PAGES_DISPATCH_TOKEN` e `PAGES_DISPATCH_REPOSITORIO` existirem.
 
 ### Alvo: um domínio no Dokploy (Traefik)
 

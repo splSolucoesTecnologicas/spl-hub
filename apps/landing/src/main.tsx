@@ -1,21 +1,8 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App'
-import { BlogIndexPage, BlogPostPage } from './blog/BlogPages'
+import { Rotas } from './rotas'
 import './styles/global.css'
 import './styles/landing-page.css'
-
-function Rotas() {
-  const [caminho, setCaminho] = useState(window.location.pathname)
-  useEffect(() => {
-    const aoVoltar = () => setCaminho(window.location.pathname)
-    window.addEventListener('popstate', aoVoltar)
-    return () => window.removeEventListener('popstate', aoVoltar)
-  }, [])
-  if (caminho === '/blog') return <BlogIndexPage />
-  if (caminho.startsWith('/blog/')) return <BlogPostPage slug={decodeURIComponent(caminho.slice('/blog/'.length))} />
-  return <App />
-}
 
 const rootElement = document.getElementById('root')
 

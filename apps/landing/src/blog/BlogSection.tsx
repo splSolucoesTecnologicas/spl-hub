@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { carregarNoticias, noticiasNoBuild, type NoticiaPublica } from './noticias'
+import { carregarNoticias, type NoticiaPublica } from './noticias'
 
-export function BlogSection() {
-  const [noticias, setNoticias] = useState<NoticiaPublica[]>(noticiasNoBuild)
+export function BlogSection({ noticias: iniciais }: { noticias: NoticiaPublica[] }) {
+  const [noticias, setNoticias] = useState<NoticiaPublica[]>(iniciais)
 
   useEffect(() => {
-    if (!import.meta.env.VITE_API_URL) return
+    if (!import.meta.env.VITE_API_URL || iniciais.length === 0) return
     let ativo = true
-    void carregarNoticias().then((lista) => { if (ativo) setNoticias(lista) })
+    void carregarNoticias().then((lista) => { if (ativo && lista.length > 0) setNoticias(lista) })
     return () => { ativo = false }
-  }, [])
+  }, [iniciais.length])
+
+  if (noticias.length === 0) return null
 
   const lista = noticias
 

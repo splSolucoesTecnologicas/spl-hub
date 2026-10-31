@@ -1,22 +1,21 @@
 import { useEffect, useState } from 'react'
 import { SiteFooter, SiteNavigation } from '../components/SiteChrome'
-import { carregarNoticia, carregarNoticias, noticiasNoBuild, type NoticiaPublica } from './noticias'
+import { carregarNoticia, carregarNoticias, type NoticiaPublica } from './noticias'
 
-export function BlogIndexPage() {
-  const [noticias, setNoticias] = useState<NoticiaPublica[]>(noticiasNoBuild)
+export function BlogIndexPage({ noticias: iniciais }: { noticias: NoticiaPublica[] }) {
+  const [noticias, setNoticias] = useState<NoticiaPublica[]>(iniciais)
   useEffect(() => {
     if (!import.meta.env.VITE_API_URL) return
-    void carregarNoticias().then(setNoticias)
+    void carregarNoticias().then((lista) => { if (lista.length > 0) setNoticias(lista) })
   }, [])
   return (
     <>
-      <SiteNavigation />
+      <SiteNavigation mostrarBlog />
       <main className="blog-page">
         <div className="wrap">
           <a className="more" href="/">← Início</a>
           <div className="eyebrow">Notícias</div>
           <h1 className="section-title">Blog</h1>
-          {noticias.length === 0 && <p className="lead">Nenhuma publicação no momento.</p>}
           <div className="cards">
             {noticias.map((noticia) => (
               <a className="card" key={noticia.slug} href={`/blog/${noticia.slug}`}>
@@ -28,20 +27,20 @@ export function BlogIndexPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
+      <SiteFooter mostrarBlog />
     </>
   )
 }
 
-export function BlogPostPage({ slug }: { slug: string }) {
-  const [noticia, setNoticia] = useState<NoticiaPublica | null>(() => noticiasNoBuild().find((item) => item.slug === slug) ?? null)
+export function BlogPostPage({ slug, noticias }: { slug: string; noticias: NoticiaPublica[] }) {
+  const [noticia, setNoticia] = useState<NoticiaPublica | null>(() => noticias.find((item) => item.slug === slug) ?? null)
   useEffect(() => {
     if (!import.meta.env.VITE_API_URL) return
     void carregarNoticia(slug).then(setNoticia)
   }, [slug])
   return (
     <>
-      <SiteNavigation />
+      <SiteNavigation mostrarBlog />
       <main className="blog-page">
         <div className="wrap artigo">
           <a className="more" href="/blog">← Blog</a>
@@ -56,7 +55,7 @@ export function BlogPostPage({ slug }: { slug: string }) {
           )}
         </div>
       </main>
-      <SiteFooter />
+      <SiteFooter mostrarBlog />
     </>
   )
 }
