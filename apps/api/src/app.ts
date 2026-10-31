@@ -47,7 +47,7 @@ export function buildApp(deps: Dependencias) {
   app.get('/health', async () => ({ ok: true, servico: 'spl-api' }));
 
   const acesso = criarCasosDeUsoAcesso(deps);
-  const tarefas = criarCasosDeUsoTarefas({ repo: deps.tarefas, github: deps.github, relogio: deps.relogio, ids: deps.ids });
+  const tarefas = criarCasosDeUsoTarefas({ repo: deps.tarefas, github: deps.github, projetos: deps.projetos, relogio: deps.relogio, ids: deps.ids });
   const blog = criarCasosDeUsoBlog({ repo: deps.noticias, relogio: deps.relogio, ids: deps.ids, aviso: deps.avisoPaginas });
   const operacao = criarCasosDeUsoOperacao(deps);
   app.register(acessoRoutes(acesso));

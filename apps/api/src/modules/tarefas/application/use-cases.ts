@@ -4,13 +4,33 @@ import type { GeradorId, Relogio } from '../../../shared/application/tempo.js';
 import type { Usuario } from '../../acesso/domain/usuario.js';
 import { Tarefa, type Coluna, type Produto } from '../domain/tarefa.js';
 import type { GitHubProjetos, TarefaRepository } from './ports/tarefa-repository.js';
+import type { ProjetoRepository } from '../../operacao/application/ports.js';
 
 export class TarefaNaoEncontrada extends ErroDeDominio {
   constructor(id: string) { super('nao_encontrada', `Tarefa ${id} não encontrada`); }
 }
 
-export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: GitHubProjetos; relogio: Relogio; ids: GeradorId }) {
-  const { repo, github, relogio, ids } = deps;
+export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: GitHubProjetos; projetos: ProjetoRepository; relogio: Relogio; ids: GeradorId }) {
+  const { repo, github, projetos, relogio, ids } = deps;
+
+  async function sincronizarComGithubSeVinculado(tarefa: Tarefa) {
+    if (!tarefa.projetoId) return;
+    const projeto = await projetos.buscarPorId(tarefa.projetoId);
+    if (!projeto?.repositorio || projeto.githubProjectNumero == null || !projeto.githubColunaMap) return;
+    const [owner, repoNome] = projeto.repositorio.split('/');
+    if (!owner || !repoNome) return;
+    const opcaoStatusId = projeto.githubColunaMap[tarefa.coluna];
+    if (!opcaoStatusId) return;
+    const issue = await github.criarOuAtualizarIssue({
+      owner, repo: repoNome, issueNumero: tarefa.githubIssueNumero, titulo: tarefa.titulo, estado: tarefa.coluna === 'feito' ? 'closed' : 'open',
+    });
+    const item = await github.definirStatusNoProjeto({
+      owner, repo: repoNome, numeroProjeto: projeto.githubProjectNumero, issueNodeId: issue.nodeId, itemNodeId: tarefa.githubItemNodeId, opcaoStatusId,
+    });
+    tarefa.vincularGithub(issue.issueNumero, issue.nodeId, item.itemNodeId);
+    await repo.salvar(tarefa);
+  }
+
   return {
     async criar(ator: Usuario, input: {
       titulo: string; coluna?: Coluna; produto?: Produto; responsavelId?: string | null; observadorIds?: string[];
@@ -19,6 +39,7 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
       ator.exigir('tarefas', 'editar');
       const tarefa = Tarefa.criar({ id: ids.novo(), agora: relogio.agora(), ...input, responsavelId: input.responsavelId === undefined ? ator.id : input.responsavelId });
       await repo.salvar(tarefa);
+      try { await sincronizarComGithubSeVinculado(tarefa); } catch (erro) { console.error('Falha ao sincronizar com GitHub:', erro); }
       return tarefa;
     },
     async atualizar(ator: Usuario, id: string, input: Parameters<Tarefa['atualizar']>[0]) {
@@ -27,6 +48,7 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
       if (!tarefa) throw new TarefaNaoEncontrada(id);
       tarefa.atualizar(input, relogio.agora());
       await repo.salvar(tarefa);
+      try { await sincronizarComGithubSeVinculado(tarefa); } catch (erro) { console.error('Falha ao sincronizar com GitHub:', erro); }
       return tarefa;
     },
     async remover(ator: Usuario, id: string) {
