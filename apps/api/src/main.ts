@@ -11,6 +11,7 @@ import { HttpThumdraAdminClient } from './integrations/thumdra/http-thumdra-admi
 import type { GitHubProjetos } from './modules/tarefas/application/ports/tarefa-repository.js';
 import type { ThumdraAdminClient } from './integrations/thumdra/thumdra-admin-client.js';
 import { AvisoPaginasGithub } from './modules/blog/adapters/out/aviso-paginas.js';
+import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoRepository, InMemoryProjetoRepository } from './modules/operacao/adapters/out/memoria.js';
 import { garantirAdminInicial, semearExemplo } from './seed/exemplo.js';
 
 function githubDe(): GitHubProjetos {
@@ -42,12 +43,15 @@ export async function criarDependencias(): Promise<Dependencias> {
     const { PrismaUsuarioRepository, PrismaSessaoRepository, PrismaDesafioRepository, PrismaSolicitacaoRepository, PrismaAuditoriaRepository } = await import('./modules/acesso/adapters/out/prisma-acesso.js');
     const { PrismaTarefaRepository } = await import('./modules/tarefas/adapters/out/prisma-tarefa-repository.js');
     const { PrismaNoticiaRepository } = await import('./modules/blog/adapters/out/prisma-noticia-repository.js');
+    const { PrismaClienteRepository, PrismaDecisaoRepository, PrismaObjetivoRepository, PrismaProjetoRepository } = await import('./modules/operacao/adapters/out/prisma.js');
     const db = new PrismaClient();
     return {
       ...comuns,
       usuarios: new PrismaUsuarioRepository(db), sessoes: new PrismaSessaoRepository(db), desafios: new PrismaDesafioRepository(db),
       solicitacoes: new PrismaSolicitacaoRepository(db), auditoria: new PrismaAuditoriaRepository(db),
       tarefas: new PrismaTarefaRepository(db), noticias: new PrismaNoticiaRepository(db),
+      clientes: new PrismaClienteRepository(db), projetos: new PrismaProjetoRepository(db),
+      decisoes: new PrismaDecisaoRepository(db), objetivos: new PrismaObjetivoRepository(db),
     };
   }
   return {
@@ -55,6 +59,8 @@ export async function criarDependencias(): Promise<Dependencias> {
     usuarios: new InMemoryUsuarioRepository(), sessoes: new InMemorySessaoRepository(), desafios: new InMemoryDesafioRepository(),
     solicitacoes: new InMemorySolicitacaoRepository(), auditoria: new InMemoryAuditoriaRepository(),
     tarefas: new InMemoryTarefaRepository(), noticias: new InMemoryNoticiaRepository(),
+    clientes: new InMemoryClienteRepository(), projetos: new InMemoryProjetoRepository(),
+    decisoes: new InMemoryDecisaoRepository(), objetivos: new InMemoryObjetivoRepository(),
   };
 }
 

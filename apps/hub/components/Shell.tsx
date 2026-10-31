@@ -49,8 +49,8 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <div className="miolo">
-        <header className="topo">
+      <div className={pathname === '/' ? 'miolo cheio' : 'miolo'}>
+        <header className={pathname === '/' ? 'topo sobre' : 'topo'}>
           <span>hub.splsolucoes.com · área interna</span>
           <form className="busca" onSubmit={(e) => e.preventDefault()}>
             <input aria-label="Buscar" placeholder="Buscar…" value={busca} onChange={(e) => setBusca(e.target.value)} />

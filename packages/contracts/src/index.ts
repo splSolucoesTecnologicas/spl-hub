@@ -36,6 +36,8 @@ export const UsuarioSchema = z.object({
   papeis: z.array(z.string()),
   cidade: z.string().nullable(),
   uf: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
   ativo: z.boolean(),
   admin: z.boolean(),
   totpAtivo: z.boolean(),
@@ -66,14 +68,31 @@ export const TotpSchema = z.object({
 }).openapi('ConfirmarTotp');
 
 export const AtualizarUsuarioSchema = z.object({
+  nome: z.string().min(2).max(80).optional(),
   vinculo: VinculoSchema.optional(),
   area: AreaSchema.optional(),
   cidade: z.string().max(80).nullable().optional(),
   uf: z.string().length(2).nullable().optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   frentes: z.array(z.string().min(1).max(40)).optional(),
   permissoes: z.record(ModuloSchema, PermissaoModuloSchema).optional(),
   ativo: z.boolean().optional(),
+  admin: z.boolean().optional(),
 }).openapi('AtualizarUsuario');
+
+export const CriarUsuarioSchema = z.object({
+  nome: z.string().min(2).max(80),
+  email: z.string().email(),
+  senha: z.string().min(8).max(200),
+  vinculo: VinculoSchema,
+  area: AreaSchema,
+  cidade: z.string().max(80).nullable().optional(),
+  uf: z.string().length(2).nullable().optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  admin: z.boolean().optional(),
+}).openapi('CriarUsuario');
 
 export const SolicitacaoAcessoSchema = z.object({
   id: z.string().uuid(),
@@ -108,6 +127,7 @@ export const TarefaSchema = z.object({
   produto: ProdutoTarefaSchema,
   responsavelId: z.string().uuid().nullable(),
   observadorIds: z.array(z.string().uuid()),
+  projetoId: z.string().uuid().nullable(),
   referencia: z.string().nullable(),
   pullRequest: z.string().nullable(),
   prazo: z.string().datetime().nullable(),
@@ -125,6 +145,7 @@ export const CriarTarefaSchema = z.object({
   produto: ProdutoTarefaSchema.optional(),
   responsavelId: z.string().uuid().nullable().optional(),
   observadorIds: z.array(z.string().uuid()).optional(),
+  projetoId: z.string().uuid().nullable().optional(),
   referencia: z.string().max(80).nullable().optional(),
   pullRequest: z.string().max(40).nullable().optional(),
   prazo: z.string().datetime().nullable().optional(),
@@ -168,6 +189,8 @@ export const CriarNoticiaSchema = z.object({
   publicar: z.boolean().optional(),
 }).openapi('CriarNoticia');
 
+export const AtualizarNoticiaSchema = CriarNoticiaSchema.pick({ titulo: true, resumo: true, corpo: true }).partial().openapi('AtualizarNoticia');
+
 export const PaginaNoticiasSchema = pagina(NoticiaSchema).openapi('PaginaNoticias');
 export const PaginaNoticiasPublicasSchema = pagina(NoticiaPublicaSchema).openapi('PaginaNoticiasPublicas');
 
@@ -179,3 +202,133 @@ export const ThumdraUsuarioAdminSchema = z.object({
   ativo: z.boolean(),
 }).openapi('ThumdraUsuarioAdmin');
 export type ThumdraUsuarioAdmin = z.infer<typeof ThumdraUsuarioAdminSchema>;
+
+export const TipoProjetoSchema = z.enum(['produto', 'sob_medida', 'interno']);
+export const StatusProjetoSchema = z.enum(['piloto', 'validacao', 'em_desenvolvimento', 'proposta', 'pausado', 'concluido']);
+export const AreaResponsavelSchema = z.enum(['dev', 'marketing', 'administracao', 'comercial', 'financeiro', 'juridico', 'infra', 'admin_produto']);
+export const StatusMarcoSchema = z.enum(['em_andamento', 'aguardando_resposta', 'em_revisao', 'feito']);
+
+export const ResponsavelProjetoSchema = z.object({
+  area: AreaResponsavelSchema,
+  usuarioId: z.string().uuid(),
+}).openapi('ResponsavelProjeto');
+
+export const MarcoProjetoSchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string(),
+  status: StatusMarcoSchema,
+  detalhe: z.string(),
+  ordem: z.number().int(),
+}).openapi('MarcoProjeto');
+
+export const ProjetoSchema = z.object({
+  id: z.string().uuid(),
+  nome: z.string(),
+  tipo: TipoProjetoSchema,
+  status: StatusProjetoSchema,
+  descricao: z.string(),
+  cor: z.string(),
+  repositorio: z.string().nullable(),
+  quadroUrl: z.string().nullable(),
+  adminUrl: z.string().nullable(),
+  progresso: z.number().int(),
+  progressoRotulo: z.string(),
+  responsaveis: z.array(ResponsavelProjetoSchema),
+  clienteIds: z.array(z.string().uuid()),
+  marcos: z.array(MarcoProjetoSchema),
+  criadoEm: z.string().datetime(),
+  atualizadoEm: z.string().datetime(),
+}).openapi('Projeto');
+export type ProjetoDTO = z.infer<typeof ProjetoSchema>;
+
+const urlOpcional = z.union([z.string().url().max(300), z.literal(''), z.null()]).optional();
+
+export const CriarProjetoSchema = z.object({
+  nome: z.string().min(2).max(80),
+  tipo: TipoProjetoSchema,
+  status: StatusProjetoSchema,
+  descricao: z.string().max(400).optional(),
+  cor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  repositorio: z.string().max(120).nullable().optional(),
+  quadroUrl: urlOpcional,
+  adminUrl: urlOpcional,
+  progresso: z.number().int().min(0).max(100).optional(),
+  progressoRotulo: z.string().max(80).optional(),
+  responsaveis: z.array(ResponsavelProjetoSchema).optional(),
+  clienteIds: z.array(z.string().uuid()).optional(),
+  marcos: z.array(z.object({
+    id: z.string().uuid().optional(),
+    titulo: z.string().min(2).max(120),
+    status: StatusMarcoSchema,
+    detalhe: z.string().max(40).optional(),
+    ordem: z.number().int().optional(),
+  })).optional(),
+}).openapi('CriarProjeto');
+export const AtualizarProjetoSchema = CriarProjetoSchema.partial().openapi('AtualizarProjeto');
+export const PaginaProjetosSchema = pagina(ProjetoSchema).openapi('PaginaProjetos');
+
+export const ClienteSchema = z.object({
+  id: z.string().uuid(),
+  nome: z.string(),
+  cidade: z.string(),
+  uf: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  status: z.string(),
+  responsavelId: z.string().uuid().nullable(),
+  ultimoContato: z.string().datetime().nullable(),
+  observacoes: z.string(),
+  criadoEm: z.string().datetime(),
+  atualizadoEm: z.string().datetime(),
+}).openapi('Cliente');
+export type ClienteDTO = z.infer<typeof ClienteSchema>;
+
+export const CriarClienteSchema = z.object({
+  nome: z.string().min(2).max(120),
+  cidade: z.string().min(2).max(80),
+  uf: z.string().length(2),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  status: z.string().min(2).max(40),
+  responsavelId: z.string().uuid().nullable().optional(),
+  ultimoContato: z.string().datetime().nullable().optional(),
+  observacoes: z.string().max(4000).optional(),
+}).openapi('CriarCliente');
+export const AtualizarClienteSchema = CriarClienteSchema.partial().openapi('AtualizarCliente');
+export const PaginaClientesSchema = pagina(ClienteSchema).openapi('PaginaClientes');
+
+export const DecisaoSchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string(),
+  detalhe: z.string(),
+  quando: z.string().datetime(),
+  autorId: z.string().uuid(),
+  criadoEm: z.string().datetime(),
+}).openapi('Decisao');
+export type DecisaoDTO = z.infer<typeof DecisaoSchema>;
+
+export const CriarDecisaoSchema = z.object({
+  titulo: z.string().min(3).max(160),
+  detalhe: z.string().max(2000).optional(),
+  quando: z.string().datetime().optional(),
+}).openapi('CriarDecisao');
+export const AtualizarDecisaoSchema = CriarDecisaoSchema.partial().openapi('AtualizarDecisao');
+
+export const ObjetivoSchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string(),
+  progresso: z.number().int(),
+  periodo: z.string(),
+  criadoEm: z.string().datetime(),
+  atualizadoEm: z.string().datetime(),
+}).openapi('Objetivo');
+export type ObjetivoDTO = z.infer<typeof ObjetivoSchema>;
+
+export const CriarObjetivoSchema = z.object({
+  titulo: z.string().min(3).max(160),
+  progresso: z.number().int().min(0).max(100),
+  periodo: z.string().min(2).max(40),
+}).openapi('CriarObjetivo');
+export const AtualizarObjetivoSchema = CriarObjetivoSchema.partial().openapi('AtualizarObjetivo');
+
+export { geocodificar, listarCidades, type CidadeGeo } from './cidades.js';

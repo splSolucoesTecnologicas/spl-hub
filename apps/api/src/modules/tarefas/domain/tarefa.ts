@@ -12,6 +12,7 @@ export interface TarefaProps {
   produto: Produto;
   responsavelId: string | null;
   observadorIds: string[];
+  projetoId: string | null;
   referencia: string | null;
   pullRequest: string | null;
   prazo: Date | null;
@@ -26,7 +27,7 @@ export class Tarefa {
 
   static criar(input: {
     id: string; titulo: string; agora: Date; coluna?: Coluna; produto?: Produto; responsavelId?: string | null;
-    observadorIds?: string[]; referencia?: string | null; pullRequest?: string | null; prazo?: Date | null; exemplo?: boolean;
+    observadorIds?: string[]; projetoId?: string | null; referencia?: string | null; pullRequest?: string | null; prazo?: Date | null; exemplo?: boolean;
   }): Tarefa {
     const titulo = input.titulo.trim();
     if (titulo.length < 3) throw new ErroDeDominio('titulo_curto', 'Título precisa de pelo menos 3 caracteres');
@@ -38,6 +39,7 @@ export class Tarefa {
       id: input.id, titulo, coluna, produto,
       responsavelId: input.responsavelId ?? null,
       observadorIds: input.observadorIds ?? [],
+      projetoId: input.projetoId ?? null,
       referencia: input.referencia ?? null,
       pullRequest: input.pullRequest ?? null,
       prazo: input.prazo ?? null,
@@ -52,7 +54,7 @@ export class Tarefa {
     return new Tarefa({ ...props, observadorIds: [...props.observadorIds] });
   }
 
-  atualizar(input: Partial<Pick<TarefaProps, 'titulo' | 'coluna' | 'produto' | 'responsavelId' | 'observadorIds' | 'referencia' | 'pullRequest' | 'prazo'>>, agora: Date): void {
+  atualizar(input: Partial<Pick<TarefaProps, 'titulo' | 'coluna' | 'produto' | 'responsavelId' | 'observadorIds' | 'projetoId' | 'referencia' | 'pullRequest' | 'prazo'>>, agora: Date): void {
     if (input.titulo !== undefined) {
       const titulo = input.titulo.trim();
       if (titulo.length < 3) throw new ErroDeDominio('titulo_curto', 'Título precisa de pelo menos 3 caracteres');
@@ -68,6 +70,7 @@ export class Tarefa {
     }
     if (input.responsavelId !== undefined) this.props.responsavelId = input.responsavelId;
     if (input.observadorIds !== undefined) this.props.observadorIds = [...input.observadorIds];
+    if (input.projetoId !== undefined) this.props.projetoId = input.projetoId;
     if (input.referencia !== undefined) this.props.referencia = input.referencia;
     if (input.pullRequest !== undefined) this.props.pullRequest = input.pullRequest;
     if (input.prazo !== undefined) this.props.prazo = input.prazo;
@@ -95,6 +98,7 @@ export class Tarefa {
   get produto() { return this.props.produto; }
   get responsavelId() { return this.props.responsavelId; }
   get observadorIds() { return this.props.observadorIds; }
+  get projetoId() { return this.props.projetoId; }
   get referencia() { return this.props.referencia; }
   get pullRequest() { return this.props.pullRequest; }
   get prazo() { return this.props.prazo; }

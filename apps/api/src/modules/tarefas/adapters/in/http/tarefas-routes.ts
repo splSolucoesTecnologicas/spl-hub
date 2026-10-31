@@ -7,7 +7,7 @@ import type { CasosDeUsoTarefas } from '../../../application/use-cases.js';
 
 const dto = (tarefa: Tarefa, agora: Date): TarefaDTO => ({
   id: tarefa.id, titulo: tarefa.titulo, coluna: tarefa.coluna, produto: tarefa.produto,
-  responsavelId: tarefa.responsavelId, observadorIds: [...tarefa.observadorIds], referencia: tarefa.referencia,
+  responsavelId: tarefa.responsavelId, observadorIds: [...tarefa.observadorIds], projetoId: tarefa.projetoId, referencia: tarefa.referencia,
   pullRequest: tarefa.pullRequest, prazo: tarefa.prazo ? tarefa.prazo.toISOString() : null, atrasada: tarefa.estaAtrasada(agora),
   exemplo: tarefa.exemplo, sincronizadaEm: tarefa.sincronizadaEm ? tarefa.sincronizadaEm.toISOString() : null,
   criadaEm: tarefa.criadaEm.toISOString(), atualizadaEm: tarefa.atualizadaEm.toISOString(),
@@ -17,13 +17,14 @@ export function tarefasRoutes(casos: CasosDeUsoTarefas, acesso: CasosDeUsoAcesso
   return async (app: FastifyInstance) => {
     const atorDe = (req: Parameters<typeof lerToken>[0]) => acesso.usuarioDoToken(lerToken(req));
 
-    app.get<{ Querystring: { limite?: string; cursor?: string; coluna?: TarefaDTO['coluna']; responsavelId?: string; produto?: TarefaDTO['produto']; filtro?: 'minhas' | 'de_olho' | 'todas' } }>('/tarefas', async (req) => {
+    app.get<{ Querystring: { limite?: string; cursor?: string; coluna?: TarefaDTO['coluna']; responsavelId?: string; produto?: TarefaDTO['produto']; projetoId?: string; filtro?: 'minhas' | 'de_olho' | 'todas' } }>('/tarefas', async (req) => {
       const pagina = await casos.listar(await atorDe(req), {
         limite: req.query.limite ? Number(req.query.limite) : undefined,
         cursor: req.query.cursor,
         coluna: req.query.coluna,
         responsavelId: req.query.responsavelId,
         produto: req.query.produto,
+        projetoId: req.query.projetoId,
         filtro: req.query.filtro,
       });
       const instante = agora();

@@ -8,6 +8,7 @@ export interface NoticiaRepository {
   buscarPorId(id: string): Promise<Noticia | null>;
   buscarPorSlug(slug: string): Promise<Noticia | null>;
   listar(params: { limite: number; cursor?: string; somentePublicadas: boolean }): Promise<{ itens: Noticia[]; proximoCursor: string | null }>;
+  remover(id: string): Promise<void>;
 }
 
 export class NoticiaNaoEncontrada extends ErroDeDominio {
@@ -41,6 +42,23 @@ export function criarCasosDeUsoBlog(deps: { repo: NoticiaRepository; relogio: Re
       await repo.salvar(noticia);
       await avisar(noticia.slug);
       return noticia;
+    },
+    async atualizar(ator: Usuario, id: string, input: { titulo?: string; resumo?: string; corpo?: string }) {
+      ator.exigir('blog', 'editar');
+      const noticia = await repo.buscarPorId(id);
+      if (!noticia) throw new NoticiaNaoEncontrada();
+      const estavaPublicada = noticia.publicada;
+      noticia.editar(input);
+      await repo.salvar(noticia);
+      if (estavaPublicada) await avisar(noticia.slug);
+      return noticia;
+    },
+    async remover(ator: Usuario, id: string) {
+      ator.exigir('blog', 'editar');
+      const noticia = await repo.buscarPorId(id);
+      if (!noticia) throw new NoticiaNaoEncontrada();
+      await repo.remover(id);
+      if (noticia.publicada) await avisar(noticia.slug);
     },
     async despublicar(ator: Usuario, id: string) {
       ator.exigir('blog', 'editar');

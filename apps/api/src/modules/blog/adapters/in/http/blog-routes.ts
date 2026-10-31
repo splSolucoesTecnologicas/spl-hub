@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { CriarNoticiaSchema, type NoticiaDTO, type NoticiaPublicaDTO } from '@spl/contracts';
+import { AtualizarNoticiaSchema, CriarNoticiaSchema, type NoticiaDTO, type NoticiaPublicaDTO } from '@spl/contracts';
 import type { CasosDeUsoAcesso } from '../../../../acesso/application/use-cases.js';
 import { lerToken } from '../../../../acesso/adapters/in/http/acesso-routes.js';
 import type { Noticia } from '../../../domain/noticia.js';
@@ -28,6 +28,13 @@ export function blogRoutes(casos: CasosDeUsoBlog, acesso: CasosDeUsoAcesso) {
     app.post('/blog/admin', async (req, reply) => {
       const body = CriarNoticiaSchema.parse(req.body);
       return reply.code(201).send(dto(await casos.criar(await atorDe(req), body)));
+    });
+
+    app.patch<{ Params: { id: string } }>('/blog/admin/:id', async (req) => dto(await casos.atualizar(await atorDe(req), req.params.id, AtualizarNoticiaSchema.parse(req.body))));
+
+    app.delete<{ Params: { id: string } }>('/blog/admin/:id', async (req, reply) => {
+      await casos.remover(await atorDe(req), req.params.id);
+      return reply.code(204).send();
     });
 
     app.post<{ Params: { id: string } }>('/blog/admin/:id/publicar', async (req) => dto(await casos.publicar(await atorDe(req), req.params.id)));

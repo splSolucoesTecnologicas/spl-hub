@@ -15,4 +15,5 @@ export class InMemoryNoticiaRepository implements NoticiaRepository {
     const pagina = paginar(filtradas, limite, cursor);
     return { itens: pagina.itens.map((item) => Noticia.restaurar(item)), proximoCursor: pagina.proximoCursor };
   }
+  async remover(id: string) { this.dados.delete(id); }
 }

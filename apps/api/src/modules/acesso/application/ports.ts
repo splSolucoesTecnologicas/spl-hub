@@ -7,6 +7,7 @@ export interface UsuarioRepository {
   buscarPorEmail(email: string): Promise<Usuario | null>;
   listar(params: { limite: number; cursor?: string }): Promise<{ itens: Usuario[]; proximoCursor: string | null }>;
   contarAdmins(): Promise<number>;
+  remover(id: string): Promise<void>;
 }
 
 export interface SessaoRepository {

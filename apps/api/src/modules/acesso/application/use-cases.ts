@@ -94,17 +94,20 @@ export function criarCasosDeUsoAcesso(deps: {
     },
 
     async atualizarUsuario(ator: Usuario, id: string, input: {
-      vinculo?: Vinculo; area?: Area; cidade?: string | null; uf?: string | null; frentes?: string[];
-      permissoes?: Permissoes; ativo?: boolean;
+      nome?: string; vinculo?: Vinculo; area?: Area; cidade?: string | null; uf?: string | null;
+      latitude?: number | null; longitude?: number | null; frentes?: string[];
+      permissoes?: Permissoes; ativo?: boolean; admin?: boolean;
     }) {
       if (!ator.admin) throw new ErroDeDominio('sem_permissao', 'Só admin edita vínculo, área e permissões');
       const alvo = await usuarios.buscarPorId(id);
       if (!alvo) throw new UsuarioNaoEncontrado();
-      if (input.ativo === false && alvo.admin) {
+      const deixaDeSerAdmin = alvo.admin && (input.ativo === false || input.admin === false);
+      if (deixaDeSerAdmin) {
         const admins = await usuarios.contarAdmins();
         if (admins <= 1) throw new ErroDeDominio('ultimo_admin', 'Não é possível desativar o último admin');
       }
       alvo.alterarPerfil(input);
+      if (input.admin !== undefined) alvo.definirAdmin(input.admin);
       if (input.permissoes) alvo.definirPermissoes(input.permissoes);
       await usuarios.salvar(alvo);
       await auditoria.registrar({
@@ -162,7 +165,7 @@ export function criarCasosDeUsoAcesso(deps: {
 
     async criarUsuario(input: {
       nome: string; email: string; senha: string; vinculo: Vinculo; area: Area; admin?: boolean;
-      cidade?: string | null; uf?: string | null; frentes?: string[]; exemplo?: boolean;
+      cidade?: string | null; uf?: string | null; latitude?: number | null; longitude?: number | null; frentes?: string[]; exemplo?: boolean;
       permissoes?: Permissoes; totpSegredo?: string | null; totpAtivo?: boolean;
     }) {
       if (input.senha.length < 8) throw new ErroDeDominio('senha_curta', 'Senha precisa de pelo menos 8 caracteres');
@@ -171,11 +174,41 @@ export function criarCasosDeUsoAcesso(deps: {
       const usuario = Usuario.criar({
         id: ids.novo(), nome: input.nome, email: input.email, senhaHash: await senhas.hash(input.senha),
         vinculo: input.vinculo, area: input.area, admin: input.admin, cidade: input.cidade, uf: input.uf,
+        latitude: input.latitude, longitude: input.longitude,
         frentes: input.frentes, exemplo: input.exemplo, permissoes: input.permissoes,
         totpSegredo: input.totpSegredo, totpAtivo: input.totpAtivo, criadoEm: relogio.agora(),
       });
       await usuarios.salvar(usuario);
       return usuario;
+    },
+
+    async criarPorAdmin(ator: Usuario, input: {
+      nome: string; email: string; senha: string; vinculo: Vinculo; area: Area; admin?: boolean;
+      cidade?: string | null; uf?: string | null; latitude?: number | null; longitude?: number | null;
+    }) {
+      if (!ator.admin) throw new ErroDeDominio('sem_permissao', 'Só admin adiciona pessoas');
+      const usuario = await this.criarUsuario({ ...input, exemplo: false });
+      await auditoria.registrar({
+        id: ids.novo(), atorId: ator.id, acao: 'criar_usuario', alvo: usuario.id,
+        detalhe: `${ator.nome} adicionou ${usuario.nome}`, criadaEm: relogio.agora(),
+      });
+      return usuario;
+    },
+
+    async excluirUsuario(ator: Usuario, id: string) {
+      if (!ator.admin) throw new ErroDeDominio('sem_permissao', 'Só admin exclui pessoas');
+      if (ator.id === id) throw new ErroDeDominio('autoexclusao', 'Você não pode excluir a si mesmo');
+      const alvo = await usuarios.buscarPorId(id);
+      if (!alvo) throw new UsuarioNaoEncontrado();
+      if (alvo.admin && alvo.ativo) {
+        const admins = await usuarios.contarAdmins();
+        if (admins <= 1) throw new ErroDeDominio('ultimo_admin', 'Não é possível excluir o último admin');
+      }
+      await usuarios.remover(id);
+      await auditoria.registrar({
+        id: ids.novo(), atorId: ator.id, acao: 'excluir_usuario', alvo: id,
+        detalhe: `${ator.nome} excluiu ${alvo.nome}`, criadaEm: relogio.agora(),
+      });
     },
   };
 }

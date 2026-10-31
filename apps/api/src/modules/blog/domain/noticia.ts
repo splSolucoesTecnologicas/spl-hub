@@ -44,6 +44,24 @@ export class Noticia {
 
   despublicar(): void { this.props.publicada = false; }
 
+  editar(input: { titulo?: string; resumo?: string; corpo?: string }): void {
+    if (input.titulo !== undefined) {
+      const titulo = input.titulo.trim();
+      if (titulo.length < 3) throw new ErroDeDominio('titulo_curto', 'Título precisa de pelo menos 3 caracteres');
+      this.props.titulo = titulo;
+    }
+    if (input.resumo !== undefined) {
+      const resumo = input.resumo.trim();
+      if (resumo.length < 3) throw new ErroDeDominio('resumo_curto', 'Resumo precisa de pelo menos 3 caracteres');
+      this.props.resumo = resumo;
+    }
+    if (input.corpo !== undefined) {
+      const corpo = input.corpo.trim();
+      if (corpo.length < 3) throw new ErroDeDominio('corpo_curto', 'Corpo precisa de pelo menos 3 caracteres');
+      this.props.corpo = corpo;
+    }
+  }
+
   get id() { return this.props.id; }
   get slug() { return this.props.slug; }
   get titulo() { return this.props.titulo; }

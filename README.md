@@ -89,7 +89,9 @@ O workflow de Pages e o `CNAME` continuam. Esta etapa não desliga nada.
 
 ## O que ainda é esboço
 
-No hub: Projetos, Reuniões, Podcast, Drive, Sócios e Configurações. Clientes é uma tabela de exemplo (sem módulo na API) ligada ao mapa. Blog, Tarefas, Time e Acesso já falam com a API. Decisões e objetivos da Início são dados de exemplo, marcados na tela.
+Reuniões, Podcast, Drive e Configurações. Projetos, Clientes, Sócios (decisões e objetivos), Tarefas, Blog, Time e Acesso falam com a API. Em produção (`NODE_ENV=production` e `SEED_EXEMPLO=false`) essas listas começam vazias: não há cliente, projeto nem pessoa de exemplo. O login não mostra senha nem segredo TOTP.
+
+As fontes do hub são Inter e Sora em `apps/hub/public/fonts`, servidas em `/hub/fonts`. Não há variável nova de ambiente. O redeploy da API aplica a migration `20261031120000_painel`. O hub passa a subir com `node .next/standalone/apps/hub/server.js` (`HOSTNAME=0.0.0.0`): `next start` com `output: standalone` respondia 500 nas rotas do painel.
 
 ## Commits
 

@@ -14,7 +14,7 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
   return {
     async criar(ator: Usuario, input: {
       titulo: string; coluna?: Coluna; produto?: Produto; responsavelId?: string | null; observadorIds?: string[];
-      referencia?: string | null; pullRequest?: string | null; prazo?: Date | null; exemplo?: boolean;
+      projetoId?: string | null; referencia?: string | null; pullRequest?: string | null; prazo?: Date | null; exemplo?: boolean;
     }) {
       ator.exigir('tarefas', 'editar');
       const tarefa = Tarefa.criar({ id: ids.novo(), agora: relogio.agora(), ...input, responsavelId: input.responsavelId === undefined ? ator.id : input.responsavelId });
@@ -35,12 +35,12 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
       if (!tarefa) throw new TarefaNaoEncontrada(id);
       await repo.remover(id);
     },
-    async listar(ator: Usuario, params: { limite?: number; cursor?: string; coluna?: Coluna; responsavelId?: string; produto?: Produto; filtro?: 'minhas' | 'de_olho' | 'todas' }) {
+    async listar(ator: Usuario, params: { limite?: number; cursor?: string; coluna?: Coluna; responsavelId?: string; produto?: Produto; projetoId?: string; filtro?: 'minhas' | 'de_olho' | 'todas' }) {
       ator.exigir('tarefas', 'ler');
       const limite = Math.min(params.limite ?? 100, 100);
       const filtro = params.filtro ?? 'todas';
-      if (filtro !== 'todas') {
-        const todas = (await repo.listarTodas()).filter((tarefa) => tarefa.visivelPara(ator.id, filtro) && (!params.coluna || tarefa.coluna === params.coluna));
+      if (filtro !== 'todas' || params.projetoId) {
+        const todas = (await repo.listarTodas()).filter((tarefa) => tarefa.visivelPara(ator.id, filtro) && (!params.coluna || tarefa.coluna === params.coluna) && (!params.projetoId || tarefa.projetoId === params.projetoId));
         const pagina = paginar(todas.map((tarefa) => tarefa.toJSON()), limite, params.cursor);
         return { itens: pagina.itens.map((item) => Tarefa.restaurar(item)), proximoCursor: pagina.proximoCursor };
       }
