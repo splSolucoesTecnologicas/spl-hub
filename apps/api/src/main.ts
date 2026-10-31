@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { buildApp, type Dependencias } from './app.js';
 import { senhas, tokens, totp } from './modules/acesso/adapters/out/crypto.js';
 import { InMemoryAuditoriaRepository, InMemoryDesafioRepository, InMemorySessaoRepository, InMemorySolicitacaoRepository, InMemoryUsuarioRepository } from './modules/acesso/adapters/out/in-memory-acesso.js';
 import { InMemoryTarefaRepository } from './modules/tarefas/adapters/out/in-memory-tarefa-repository.js';
 import { FakeGitHubProjetos } from './modules/tarefas/adapters/out/fake-github-projetos.js';
-import { StubGitHubProjetos } from './modules/tarefas/adapters/out/stub-github-projetos.js';
+import { AppGitHubProjetos } from './modules/tarefas/adapters/out/app-github-projetos.js';
 import { InMemoryNoticiaRepository } from './modules/blog/adapters/out/in-memory-noticia-repository.js';
 import { FakeThumdraAdminClient } from './integrations/thumdra/fake-thumdra-admin-client.js';
 import { HttpThumdraAdminClient } from './integrations/thumdra/http-thumdra-admin-client.js';
@@ -14,9 +15,19 @@ import { AvisoPaginasGithub } from './modules/blog/adapters/out/aviso-paginas.js
 import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoRepository, InMemoryProjetoRepository } from './modules/operacao/adapters/out/memoria.js';
 import { garantirAdminInicial, semearExemplo } from './seed/exemplo.js';
 
+function chavePrivadaGithub(): string | undefined {
+  if (process.env.GITHUB_APP_PRIVATE_KEY_PATH) return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
+  return process.env.GITHUB_APP_PRIVATE_KEY;
+}
+
 function githubDe(): GitHubProjetos {
-  if (process.env.GITHUB_ADAPTER === 'http') {
-    return new StubGitHubProjetos({ token: process.env.GITHUB_TOKEN, owner: process.env.GITHUB_OWNER, project: process.env.GITHUB_PROJECT });
+  const chavePrivada = chavePrivadaGithub();
+  if (process.env.GITHUB_ADAPTER === 'app' && process.env.GITHUB_APP_ID && chavePrivada && process.env.GITHUB_APP_INSTALLATION_ID) {
+    return new AppGitHubProjetos({
+      appId: process.env.GITHUB_APP_ID,
+      chavePrivada,
+      installationId: process.env.GITHUB_APP_INSTALLATION_ID,
+    });
   }
   return new FakeGitHubProjetos();
 }
