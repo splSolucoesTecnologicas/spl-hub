@@ -83,6 +83,8 @@ model Tarefa {
   projetoId      String?   @db.Uuid
   referencia     String?
   pullRequest    String?
+  githubIssueNumero Int?
+  githubItemNodeId  String?
   prazo          DateTime?
   exemplo        Boolean   @default(false)
   sincronizadaEm DateTime?
@@ -151,6 +153,8 @@ model Projeto {
   repositorio     String?
   quadroUrl       String?
   adminUrl        String?
+  githubProjectNumero Int?
+  githubColunaMap      Json?
   progresso       Int      @default(0)
   progressoRotulo String   @default("")
   responsaveis    Json
