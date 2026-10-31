@@ -1,27 +1,35 @@
-# Liga os serviços na rede do Traefik do Dokploy e tira as portas publicadas no host.
-# As labels de roteamento ficam no compose principal.
+# Override de produção para quem sobe os dois arquivos.
+# No Dokploy use só docker-compose.prod.yml (um caminho de compose).
 services:
   db:
     ports: !reset []
     networks: [interna]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spl}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-spl}
   api:
     ports: !reset []
     networks: [interna, dokploy-network]
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-spl}:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spl}?schema=public
+      PERSISTENCIA: prisma
+      TAREFAS_REPO: prisma
       CORS_ORIGINS: https://splsolucoes.com
       SEED_EXEMPLO: "false"
+    command: ["sh", "-c", "pnpm exec prisma migrate deploy && node dist/main.js"]
   hub:
     ports: !reset []
     networks: [dokploy-network]
     build:
       args:
-        NEXT_PUBLIC_API_URL: https://splsolucoes.com/api
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://splsolucoes.com/api}
   landing:
     ports: !reset []
     networks: [dokploy-network]
     build:
       args:
-        VITE_API_URL: https://splsolucoes.com/api
+        VITE_API_URL: ${VITE_API_URL:-https://splsolucoes.com/api}
 
 networks:
   interna:
