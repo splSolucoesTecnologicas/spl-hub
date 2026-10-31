@@ -11,6 +11,7 @@ import { criarCasosDeUsoTarefas } from './modules/tarefas/application/use-cases.
 import { criarCasosDeUsoBlog } from './modules/blog/application/use-cases.js';
 import { acessoRoutes } from './modules/acesso/adapters/in/http/acesso-routes.js';
 import { tarefasRoutes } from './modules/tarefas/adapters/in/http/tarefas-routes.js';
+import { githubWebhookRoutes } from './modules/tarefas/adapters/in/http/github-webhook-routes.js';
 import { blogRoutes } from './modules/blog/adapters/in/http/blog-routes.js';
 import { criarCasosDeUsoOperacao } from './modules/operacao/application/use-cases.js';
 import { operacaoRoutes } from './modules/operacao/adapters/in/http/routes.js';
@@ -52,6 +53,7 @@ export function buildApp(deps: Dependencias) {
   const operacao = criarCasosDeUsoOperacao(deps);
   app.register(acessoRoutes(acesso));
   app.register(tarefasRoutes(tarefas, acesso, () => deps.relogio.agora()));
+  app.register(githubWebhookRoutes({ tarefas: deps.tarefas, projetos: deps.projetos, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET, relogio: deps.relogio, ids: deps.ids }));
   app.register(blogRoutes(blog, acesso));
   app.register(operacaoRoutes(operacao, acesso));
   app.register(thumdraRoutes(deps.thumdra, acesso));
