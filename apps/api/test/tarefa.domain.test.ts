@@ -20,6 +20,13 @@ describe('Tarefa (domínio)', () => {
     expect(() => tarefa.atualizar({ coluna: 'arquivada' as 'feito' }, agora)).toThrow(/Coluna/);
   });
 
+  it('vincula a tarefa a uma issue do GitHub', () => {
+    const tarefa = Tarefa.criar({ id: '1', titulo: 'Testar vinculo', agora });
+    tarefa.vincularGithub(42, 'IT_issue', 'PVTI_item');
+    expect(tarefa.githubIssueNumero).toBe(42);
+    expect(tarefa.githubItemNodeId).toBe('PVTI_item');
+  });
+
   it('separa minhas e de olho', () => {
     const tarefa = Tarefa.criar({ id: '1', titulo: 'Proxy', agora, responsavelId: 'edu', observadorIds: ['segatto'] });
     expect(tarefa.visivelPara('edu', 'minhas')).toBe(true);

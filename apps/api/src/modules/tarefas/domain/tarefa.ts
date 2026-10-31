@@ -15,6 +15,8 @@ export interface TarefaProps {
   projetoId: string | null;
   referencia: string | null;
   pullRequest: string | null;
+  githubIssueNumero: number | null;
+  githubItemNodeId: string | null;
   prazo: Date | null;
   exemplo: boolean;
   sincronizadaEm: Date | null;
@@ -42,6 +44,8 @@ export class Tarefa {
       projetoId: input.projetoId ?? null,
       referencia: input.referencia ?? null,
       pullRequest: input.pullRequest ?? null,
+      githubIssueNumero: null,
+      githubItemNodeId: null,
       prazo: input.prazo ?? null,
       exemplo: input.exemplo ?? false,
       sincronizadaEm: null,
@@ -82,6 +86,11 @@ export class Tarefa {
     this.props.sincronizadaEm = agora;
   }
 
+  vincularGithub(issueNumero: number, _issueNodeId: string | null, itemNodeId: string | null): void {
+    this.props.githubIssueNumero = issueNumero;
+    if (itemNodeId) this.props.githubItemNodeId = itemNodeId;
+  }
+
   estaAtrasada(agora: Date): boolean {
     return Boolean(this.props.prazo && this.props.prazo.getTime() < agora.getTime() && this.props.coluna !== 'feito');
   }
@@ -101,6 +110,8 @@ export class Tarefa {
   get projetoId() { return this.props.projetoId; }
   get referencia() { return this.props.referencia; }
   get pullRequest() { return this.props.pullRequest; }
+  get githubIssueNumero() { return this.props.githubIssueNumero; }
+  get githubItemNodeId() { return this.props.githubItemNodeId; }
   get prazo() { return this.props.prazo; }
   get exemplo() { return this.props.exemplo; }
   get sincronizadaEm() { return this.props.sincronizadaEm; }
