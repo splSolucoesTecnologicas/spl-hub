@@ -140,6 +140,7 @@ export const TarefaSchema = z.object({
   projetoId: z.string().uuid().nullable(),
   referencia: z.string().nullable(),
   pullRequest: z.string().nullable(),
+  githubIssueNumero: z.number().int().nullable(),
   prazo: z.string().datetime().nullable(),
   atrasada: z.boolean(),
   exemplo: z.boolean(),
@@ -241,6 +242,8 @@ export const ProjetoSchema = z.object({
   repositorio: z.string().nullable(),
   quadroUrl: z.string().nullable(),
   adminUrl: z.string().nullable(),
+  githubProjectNumero: z.number().int().nullable(),
+  githubColunaMap: z.record(z.string(), z.string()).nullable(),
   progresso: z.number().int(),
   progressoRotulo: z.string(),
   responsaveis: z.array(ResponsavelProjetoSchema),
@@ -262,6 +265,8 @@ export const CriarProjetoSchema = z.object({
   repositorio: z.string().max(120).nullable().optional(),
   quadroUrl: urlOpcional,
   adminUrl: urlOpcional,
+  githubProjectNumero: z.number().int().nullable().optional(),
+  githubColunaMap: z.record(z.string(), z.string()).nullable().optional(),
   progresso: z.number().int().min(0).max(100).optional(),
   progressoRotulo: z.string().max(80).optional(),
   responsaveis: z.array(ResponsavelProjetoSchema).optional(),
@@ -340,5 +345,20 @@ export const CriarObjetivoSchema = z.object({
   periodo: z.string().min(2).max(40),
 }).openapi('CriarObjetivo');
 export const AtualizarObjetivoSchema = CriarObjetivoSchema.partial().openapi('AtualizarObjetivo');
+
+export const GithubStatusSchema = z.object({
+  conectado: z.boolean(),
+  organizacao: z.string().nullable(),
+}).openapi('GithubStatus');
+export type GithubStatusDTO = z.infer<typeof GithubStatusSchema>;
+
+export const GithubRepositorioSchema = z.object({ owner: z.string(), nome: z.string() }).openapi('GithubRepositorio');
+export type GithubRepositorioDTO = z.infer<typeof GithubRepositorioSchema>;
+
+export const GithubProjetoBoardSchema = z.object({ numero: z.number().int(), titulo: z.string() }).openapi('GithubProjetoBoard');
+export type GithubProjetoBoardDTO = z.infer<typeof GithubProjetoBoardSchema>;
+
+export const GithubOpcaoStatusSchema = z.object({ id: z.string(), nome: z.string() }).openapi('GithubOpcaoStatus');
+export type GithubOpcaoStatusDTO = z.infer<typeof GithubOpcaoStatusSchema>;
 
 export { geocodificar, listarCidades, listarCidadesPorUf, type CidadeGeo } from './cidades.js';
