@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { AtualizarUsuarioSchema, LoginSchema, TotpSchema, type UsuarioDTO } from '@spl/contracts';
+import { AtualizarUsuarioSchema, CriarUsuarioSchema, LoginSchema, TotpSchema, type UsuarioDTO } from '@spl/contracts';
 import { ErroDeDominio } from '../../../../../shared/domain/erro-de-dominio.js';
 import type { Modulo, Permissoes } from '../../../domain/usuario.js';
 import { papeisDe, type Usuario } from '../../../domain/usuario.js';
@@ -8,7 +8,7 @@ import type { CasosDeUsoAcesso } from '../../../application/use-cases.js';
 export function usuarioDto(usuario: Usuario): UsuarioDTO {
   return {
     id: usuario.id, nome: usuario.nome, email: usuario.email, vinculo: usuario.vinculo, area: usuario.area,
-    papeis: papeisDe(usuario), cidade: usuario.cidade, uf: usuario.uf, ativo: usuario.ativo, admin: usuario.admin,
+    papeis: papeisDe(usuario), cidade: usuario.cidade, uf: usuario.uf, latitude: usuario.latitude, longitude: usuario.longitude, ativo: usuario.ativo, admin: usuario.admin,
     totpAtivo: usuario.totpAtivo, permissoes: usuario.permissoes, frentes: [...usuario.frentes], exemplo: usuario.exemplo,
     ultimoAcesso: usuario.ultimoAcesso ? usuario.ultimoAcesso.toISOString() : null,
   };
@@ -48,10 +48,20 @@ export function acessoRoutes(casos: CasosDeUsoAcesso) {
       return { data: pagina.itens.map(usuarioDto), nextCursor: pagina.proximoCursor };
     });
 
+    app.post('/acesso/usuarios', async (req, reply) => {
+      const body = CriarUsuarioSchema.parse(req.body);
+      return reply.code(201).send(usuarioDto(await casos.criarPorAdmin(await atorDe(req), body)));
+    });
+
     app.patch<{ Params: { id: string } }>('/acesso/usuarios/:id', async (req) => {
       const body = AtualizarUsuarioSchema.parse(req.body);
       const atualizado = await casos.atualizarUsuario(await atorDe(req), req.params.id, { ...body, permissoes: body.permissoes as Permissoes | undefined });
       return usuarioDto(atualizado);
+    });
+
+    app.delete<{ Params: { id: string } }>('/acesso/usuarios/:id', async (req, reply) => {
+      await casos.excluirUsuario(await atorDe(req), req.params.id);
+      return reply.code(204).send();
     });
 
     app.post('/acesso/totp/iniciar', async (req) => casos.iniciarTotp(await atorDe(req)));

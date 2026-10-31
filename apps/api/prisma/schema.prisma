@@ -18,6 +18,8 @@ model Usuario {
   area         String
   cidade       String?
   uf           String?
+  latitude     Float?
+  longitude    Float?
   ativo        Boolean   @default(true)
   admin        Boolean   @default(false)
   permissoes   Json
@@ -77,6 +79,7 @@ model Tarefa {
   produto        String
   responsavelId  String?   @db.Uuid
   observadorIds  String[]
+  projetoId      String?   @db.Uuid
   referencia     String?
   pullRequest    String?
   prazo          DateTime?
@@ -99,4 +102,60 @@ model Noticia {
   exemplo     Boolean   @default(false)
   criadaEm    DateTime  @default(now())
   @@map("noticias")
+}
+
+model Cliente {
+  id            String    @id @db.Uuid
+  nome          String
+  cidade        String
+  uf            String
+  latitude      Float
+  longitude     Float
+  status        String
+  responsavelId String?   @db.Uuid
+  ultimoContato DateTime?
+  observacoes   String    @default("")
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+  @@map("clientes")
+}
+
+model Decisao {
+  id       String   @id @db.Uuid
+  titulo   String
+  detalhe  String   @default("")
+  quando   DateTime
+  autorId  String   @db.Uuid
+  criadoEm DateTime @default(now())
+  @@map("decisoes")
+}
+
+model Objetivo {
+  id           String   @id @db.Uuid
+  titulo       String
+  progresso    Int
+  periodo      String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+  @@map("objetivos")
+}
+
+model Projeto {
+  id              String   @id @db.Uuid
+  nome            String
+  tipo            String
+  status          String
+  descricao       String   @default("")
+  cor             String
+  repositorio     String?
+  quadroUrl       String?
+  adminUrl        String?
+  progresso       Int      @default(0)
+  progressoRotulo String   @default("")
+  responsaveis    Json
+  clienteIds      String[]
+  marcos          Json
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+  @@map("projetos")
 }

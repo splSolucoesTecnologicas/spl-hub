@@ -8,6 +8,14 @@ export function projetar(lat: number, lon: number) {
   };
 }
 
+export function desprojetar(x: number, y: number) {
+  const { w, h, minLon, maxLon, minLat, maxLat } = MAPA_VIEWBOX;
+  return {
+    lon: minLon + (x / w) * (maxLon - minLon),
+    lat: maxLat - (y / h) * (maxLat - minLat),
+  };
+}
+
 export const CIDADES: Record<string, { lat: number; lon: number }> = {
   'São Paulo': { lat: -23.55, lon: -46.63 },
   'Belo Horizonte': { lat: -19.92, lon: -43.94 },

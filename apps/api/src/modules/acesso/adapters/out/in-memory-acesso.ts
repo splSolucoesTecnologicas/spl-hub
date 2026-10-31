@@ -16,6 +16,7 @@ export class InMemoryUsuarioRepository implements UsuarioRepository {
     return { itens: pagina.itens.map((item) => Usuario.restaurar(item)), proximoCursor: pagina.proximoCursor };
   }
   async contarAdmins() { return [...this.dados.values()].filter((item) => item.admin && item.ativo).length; }
+  async remover(id: string) { this.dados.delete(id); }
 }
 
 export class InMemorySessaoRepository implements SessaoRepository {

@@ -4,6 +4,7 @@ import { InMemoryAuditoriaRepository, InMemoryDesafioRepository, InMemorySessaoR
 import { InMemoryTarefaRepository } from '../src/modules/tarefas/adapters/out/in-memory-tarefa-repository.js';
 import { FakeGitHubProjetos } from '../src/modules/tarefas/adapters/out/fake-github-projetos.js';
 import { InMemoryNoticiaRepository } from '../src/modules/blog/adapters/out/in-memory-noticia-repository.js';
+import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoRepository, InMemoryProjetoRepository } from '../src/modules/operacao/adapters/out/memoria.js';
 import { FakeThumdraAdminClient } from '../src/integrations/thumdra/fake-thumdra-admin-client.js';
 import { criarCasosDeUsoAcesso } from '../src/modules/acesso/application/use-cases.js';
 import type { AvisoPaginas } from '../src/modules/blog/application/use-cases.js';
@@ -20,6 +21,10 @@ export function memoria(): Dependencias & { acesso: ReturnType<typeof criarCasos
     auditoria: new InMemoryAuditoriaRepository(),
     tarefas: new InMemoryTarefaRepository(),
     noticias: new InMemoryNoticiaRepository(),
+    clientes: new InMemoryClienteRepository(),
+    projetos: new InMemoryProjetoRepository(),
+    decisoes: new InMemoryDecisaoRepository(),
+    objetivos: new InMemoryObjetivoRepository(),
     avisoPaginas: { async conteudoPublicoMudou() {} } satisfies AvisoPaginas,
     github: new FakeGitHubProjetos(),
     thumdra: new FakeThumdraAdminClient(),

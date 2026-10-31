@@ -35,6 +35,26 @@ describe('API HTTP', () => {
     expect(sumiu.statusCode).toBe(404);
   });
 
+  it('cria cliente geocodificado e projeto, e os dois começam vazios depois da exclusão', async () => {
+    const criada = await ctx.app.inject({
+      method: 'POST', url: '/clientes', headers: { authorization: `Bearer ${ctx.token}` },
+      payload: { nome: 'Costa Adv.', cidade: 'São Paulo', uf: 'SP', status: 'Ativo' },
+    });
+    expect(criada.statusCode).toBe(201);
+    expect(criada.json().latitude).toBeCloseTo(-23.55, 1);
+    const projeto = await ctx.app.inject({
+      method: 'POST', url: '/projetos', headers: { authorization: `Bearer ${ctx.token}` },
+      payload: { nome: 'Thumdra', tipo: 'produto', status: 'piloto', cor: '#4c8dff', clienteIds: [criada.json().id], repositorio: 'spl-solucoes/thumdra' },
+    });
+    expect(projeto.statusCode).toBe(201);
+    const lista = await ctx.app.inject({ method: 'GET', url: '/projetos', headers: { authorization: `Bearer ${ctx.token}` } });
+    expect(lista.json().data).toHaveLength(1);
+    expect((await ctx.app.inject({ method: 'DELETE', url: `/projetos/${projeto.json().id}`, headers: { authorization: `Bearer ${ctx.token}` } })).statusCode).toBe(204);
+    expect((await ctx.app.inject({ method: 'DELETE', url: `/clientes/${criada.json().id}`, headers: { authorization: `Bearer ${ctx.token}` } })).statusCode).toBe(204);
+    const vazia = await ctx.app.inject({ method: 'GET', url: '/clientes', headers: { authorization: `Bearer ${ctx.token}` } });
+    expect(vazia.json().data).toEqual([]);
+  });
+
   it('recusa tarefa sem sessão', async () => {
     const resposta = await ctx.app.inject({ method: 'GET', url: '/tarefas' });
     expect(resposta.statusCode).toBe(401);

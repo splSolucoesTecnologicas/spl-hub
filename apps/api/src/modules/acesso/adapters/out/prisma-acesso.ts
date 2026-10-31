@@ -6,7 +6,7 @@ import type { AuditoriaRepository, DesafioRepository, SessaoRepository, Solicita
 
 function usuarioDe(row: {
   id: string; nome: string; email: string; senhaHash: string; totpSegredo: string | null; totpAtivo: boolean;
-  vinculo: string; area: string; cidade: string | null; uf: string | null; ativo: boolean; admin: boolean;
+  vinculo: string; area: string; cidade: string | null; uf: string | null; latitude: number | null; longitude: number | null; ativo: boolean; admin: boolean;
   permissoes: unknown; frentes: string[]; exemplo: boolean; tentativas: number; bloqueadoAte: Date | null;
   ultimoAcesso: Date | null; criadoEm: Date;
 }): Usuario {
@@ -32,6 +32,7 @@ export class PrismaUsuarioRepository implements UsuarioRepository {
     return { itens: pagina.itens.map(usuarioDe), proximoCursor: pagina.proximoCursor };
   }
   async contarAdmins() { return this.db.usuario.count({ where: { admin: true, ativo: true } }); }
+  async remover(id: string) { await this.db.usuario.delete({ where: { id } }); }
 }
 
 export class PrismaSessaoRepository implements SessaoRepository {

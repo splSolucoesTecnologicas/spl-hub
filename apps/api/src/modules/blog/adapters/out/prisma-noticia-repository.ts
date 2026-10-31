@@ -19,4 +19,5 @@ export class PrismaNoticiaRepository implements NoticiaRepository {
     const itens = rows.slice(0, limite).map((row) => Noticia.restaurar(row as NoticiaProps));
     return { itens, proximoCursor: temMais ? itens[itens.length - 1]!.id : null };
   }
+  async remover(id: string) { await this.db.noticia.deleteMany({ where: { id } }); }
 }

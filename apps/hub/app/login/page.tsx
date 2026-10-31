@@ -8,8 +8,8 @@ import { gravarSessao } from '@/lib/sessao';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('segatto@splsolucoes.com');
-  const [senha, setSenha] = useState('SplExemplo#2026');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
   const [desafio, setDesafio] = useState<string | null>(null);
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState('');
@@ -57,11 +57,6 @@ export default function LoginPage() {
         {erro && <p className="erro">{erro}</p>}
         <button className="btn" type="submit">{desafio ? 'Confirmar 2FA' : 'Entrar'}</button>
       </form>
-      <aside className="exemplo">
-        <span className="chip amber">dados de exemplo</span>
-        <p>segatto@splsolucoes.com · senha SplExemplo#2026 · sem 2FA</p>
-        <p>lucas@splsolucoes.com exige TOTP. Segredo de exemplo: JBSWY3DPEHPK3PXP</p>
-      </aside>
     </main>
   );
 }

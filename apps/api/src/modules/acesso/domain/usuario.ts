@@ -28,6 +28,9 @@ export function permissoesPadrao(vinculo: Vinculo): Permissoes {
     todas.tarefas = nivel('editar');
     todas.socios = nivel('editar');
     todas.time = nivel('editar');
+    todas.projetos = nivel('editar');
+    todas.clientes = nivel('editar');
+    todas.blog = nivel('editar');
     todas.admin_thumdra = nivel('off');
     todas.admin_corujuris = nivel('off');
     return todas;
@@ -55,6 +58,8 @@ export interface UsuarioProps {
   area: Area;
   cidade: string | null;
   uf: string | null;
+  latitude: number | null;
+  longitude: number | null;
   ativo: boolean;
   admin: boolean;
   permissoes: Permissoes;
@@ -71,7 +76,7 @@ export class Usuario {
 
   static criar(input: {
     id: string; nome: string; email: string; senhaHash: string; vinculo: Vinculo; area: Area;
-    cidade?: string | null; uf?: string | null; admin?: boolean; frentes?: string[]; exemplo?: boolean;
+    cidade?: string | null; uf?: string | null; latitude?: number | null; longitude?: number | null; admin?: boolean; frentes?: string[]; exemplo?: boolean;
     permissoes?: Permissoes; totpSegredo?: string | null; totpAtivo?: boolean; criadoEm: Date;
   }): Usuario {
     const nome = input.nome.trim();
@@ -90,7 +95,9 @@ export class Usuario {
       vinculo: input.vinculo,
       area: input.area,
       cidade: input.cidade ?? null,
-      uf: input.uf ?? null,
+      uf: input.uf ? input.uf.toUpperCase() : null,
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
       ativo: true,
       admin: input.admin ?? false,
       permissoes,
@@ -101,6 +108,7 @@ export class Usuario {
       ultimoAcesso: null,
       criadoEm: input.criadoEm,
     });
+    usuario.validarCoordenadas();
     usuario.validarPermissoes(permissoes);
     return usuario;
   }
@@ -146,7 +154,12 @@ export class Usuario {
     this.props.ultimoAcesso = agora;
   }
 
-  alterarPerfil(input: { vinculo?: Vinculo; area?: Area; cidade?: string | null; uf?: string | null; frentes?: string[]; ativo?: boolean }): void {
+  alterarPerfil(input: { nome?: string; vinculo?: Vinculo; area?: Area; cidade?: string | null; uf?: string | null; latitude?: number | null; longitude?: number | null; frentes?: string[]; ativo?: boolean }): void {
+    if (input.nome !== undefined) {
+      const nome = input.nome.trim();
+      if (nome.length < 2) throw new ErroDeDominio('nome_curto', 'Nome precisa de pelo menos 2 caracteres');
+      this.props.nome = nome;
+    }
     if (input.vinculo) this.props.vinculo = input.vinculo;
     if (input.area) {
       if (!AREAS.includes(input.area)) throw new ErroDeDominio('area_invalida', 'Área inválida');
@@ -154,10 +167,25 @@ export class Usuario {
     }
     if (input.cidade !== undefined) this.props.cidade = input.cidade;
     if (input.uf !== undefined) this.props.uf = input.uf ? input.uf.toUpperCase() : null;
+    if (input.latitude !== undefined) this.props.latitude = input.latitude;
+    if (input.longitude !== undefined) this.props.longitude = input.longitude;
     if (input.frentes) this.props.frentes = [...new Set(input.frentes.map((frente) => frente.trim()).filter(Boolean))];
     if (input.ativo !== undefined) this.props.ativo = input.ativo;
     if (this.props.vinculo === 'colaborador') this.props.permissoes.socios = nivel('off');
+    this.validarCoordenadas();
     this.validarPermissoes(this.props.permissoes);
+  }
+
+  definirAdmin(admin: boolean): void {
+    this.props.admin = admin;
+  }
+
+  private validarCoordenadas(): void {
+    const { latitude, longitude } = this.props;
+    if (latitude == null && longitude == null) return;
+    if (latitude == null || longitude == null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      throw new ErroDeDominio('coordenada_invalida', 'Latitude ou longitude fora do intervalo');
+    }
   }
 
   definirPermissoes(permissoes: Permissoes): void {
@@ -195,6 +223,8 @@ export class Usuario {
   get area() { return this.props.area; }
   get cidade() { return this.props.cidade; }
   get uf() { return this.props.uf; }
+  get latitude() { return this.props.latitude; }
+  get longitude() { return this.props.longitude; }
   get ativo() { return this.props.ativo; }
   get admin() { return this.props.admin; }
   get permissoes() { return this.props.permissoes; }
