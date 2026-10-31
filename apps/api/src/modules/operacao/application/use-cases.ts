@@ -6,6 +6,7 @@ import { Cliente } from '../domain/cliente.js';
 import { Projeto, type MarcoProjeto, type ResponsavelProjeto, type StatusProjeto, type TipoProjeto } from '../domain/projeto.js';
 import { Decisao, Objetivo } from '../domain/socios.js';
 import type { ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './ports.js';
+import type { GitHubProjetos } from '../../tarefas/application/ports/tarefa-repository.js';
 
 export class RegistroNaoEncontrado extends ErroDeDominio {
   constructor(mensagem: string) { super('nao_encontrada', mensagem); }
@@ -28,10 +29,11 @@ export function criarCasosDeUsoOperacao(deps: {
   projetos: ProjetoRepository;
   decisoes: DecisaoRepository;
   objetivos: ObjetivoRepository;
+  github: GitHubProjetos;
   relogio: Relogio;
   ids: GeradorId;
 }) {
-  const { clientes, projetos, decisoes, objetivos, relogio, ids } = deps;
+  const { clientes, projetos, decisoes, objetivos, github, relogio, ids } = deps;
 
   function verProjeto(ator: Usuario, projeto: Projeto): boolean {
     if (ator.admin || ator.pode('projetos', 'ler')) return true;
@@ -106,6 +108,22 @@ export function criarCasosDeUsoOperacao(deps: {
       if (!projeto) throw new RegistroNaoEncontrado('Projeto não encontrado');
       if (!verProjeto(ator, projeto)) throw new ErroDeDominio('sem_permissao', 'Sem permissão para este projeto');
       return projeto;
+    },
+
+    async listarRepositoriosGithub(ator: Usuario) {
+      ator.exigir('projetos', 'editar');
+      return github.listarRepositorios();
+    },
+    async listarProjetosGithub(ator: Usuario, owner: string, repo: string) {
+      ator.exigir('projetos', 'editar');
+      return github.listarProjetosDoRepo(owner, repo);
+    },
+    async listarOpcoesStatusGithub(ator: Usuario, owner: string, repo: string, numero: number) {
+      ator.exigir('projetos', 'editar');
+      return github.listarOpcoesDeStatus(owner, repo, numero);
+    },
+    async statusGithub() {
+      return github.status();
     },
 
     async criarProjeto(ator: Usuario, input: {
