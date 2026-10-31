@@ -107,17 +107,24 @@ export function Inicio() {
         <svg ref={svgRef} viewBox="0 0 640 640" role="img" aria-label="Mapa do Brasil com a equipe e os clientes">
           <g ref={grupoRef}>
             {ESTADOS.map((estado) => <path key={estado.sigla} className="estado" d={estado.d} />)}
-            {mostraEquipe && pessoas.map((pessoa) => {
-              const ponto = pontoPessoa(pessoa);
-              if (!ponto) return null;
-              return (
-                <g key={pessoa.id} className="ponto" style={{ color: '#00ff66' }}>
-                  <circle className="halo" cx={ponto.x} cy={ponto.y} r="9" />
-                  <circle className="nucleo" cx={ponto.x} cy={ponto.y} r="4.5" fill="currentColor" />
-                  <text className="rotulo" x={ponto.x + 8} y={ponto.y - 6} fill="#00ff66">{pessoa.nome.split(' ')[0]}</text>
-                </g>
-              );
-            })}
+            {mostraEquipe && (() => {
+              const vistos = new Map<string, number>();
+              return pessoas.map((pessoa) => {
+                const ponto = pontoPessoa(pessoa);
+                if (!ponto) return null;
+                const chave = `${ponto.x.toFixed(1)},${ponto.y.toFixed(1)}`;
+                const ordem = vistos.get(chave) ?? 0;
+                vistos.set(chave, ordem + 1);
+                const deslocY = ordem * 14;
+                return (
+                  <g key={pessoa.id} className="ponto" style={{ color: '#00ff66' }}>
+                    <circle className="halo" cx={ponto.x} cy={ponto.y} r="9" />
+                    <circle className="nucleo" cx={ponto.x} cy={ponto.y} r="4.5" fill="currentColor" />
+                    <text className="rotulo" x={ponto.x + 8} y={ponto.y - 6 + deslocY} fill="#00ff66">{pessoa.nome.split(' ')[0]}</text>
+                  </g>
+                );
+              });
+            })()}
             {clientes.filter(mostraCliente).map((item) => {
               const ponto = projetar(item.latitude, item.longitude);
               const cor = projetoDo(item.id)?.cor ?? '#8a908c';
