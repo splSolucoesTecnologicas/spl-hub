@@ -20,11 +20,14 @@ function chavePrivadaGithub(): string | undefined {
     try {
       return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
     } catch (erro) {
-      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): caindo para o adapter fake.`, erro);
-      return undefined;
+      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): tentando GITHUB_APP_PRIVATE_KEY em seguida.`, erro);
     }
   }
-  return process.env.GITHUB_APP_PRIVATE_KEY;
+  // Aceita a chave numa única linha, com \n literal no lugar das quebras reais —
+  // mais robusto que depender de como cada painel trata variável multi-linha.
+  return process.env.GITHUB_APP_PRIVATE_KEY?.includes('\\n')
+    ? process.env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n')
+    : process.env.GITHUB_APP_PRIVATE_KEY;
 }
 
 function githubDe(): GitHubProjetos {
