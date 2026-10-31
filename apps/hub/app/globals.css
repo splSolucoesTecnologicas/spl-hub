@@ -146,6 +146,10 @@ h1 { font-size: 40px; margin: 0 0 18px; letter-spacing: -.03em; }
 .atrasada { color: var(--red); font-weight: 700; }
 .nova { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .nova input, .campo, select.campo, textarea.campo { width: 100%; background: #0c0e0c; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+select.campo[multiple] { padding: 4px; }
+select.campo[multiple] option { padding: 7px 8px; border-radius: 7px; margin: 1px 0; }
+select.campo[multiple] option:checked { background: linear-gradient(0deg, #12351f, #12351f) #0c0e0c; color: var(--green); }
+select.campo[multiple]:focus { outline: none; border-color: var(--green); }
 
 .grade { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
 .perfil dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 10px; font-size: 14px; }
