@@ -6,7 +6,7 @@ const base = (process.env.VITE_API_URL || process.env.BLOG_API_URL || '').replac
 let noticias = []
 
 if (!base) {
-  console.log('Blog: sem VITE_API_URL. A landing sai com a seção vazia.')
+  console.log('Blog: sem VITE_API_URL. A landing sai sem seção, links nem /blog.')
 } else {
   try {
     const resposta = await fetch(`${base}/blog?limite=50`, { signal: AbortSignal.timeout(8000) })
@@ -15,7 +15,7 @@ if (!base) {
     noticias = Array.isArray(corpo.data) ? corpo.data : []
     console.log(`Blog: ${noticias.length} notícia(s) embutida(s) no build.`)
   } catch (erro) {
-    console.warn(`Blog: API indisponível (${erro instanceof Error ? erro.message : erro}). Publicando sem notícias.`)
+    console.warn(`Blog: API indisponível (${erro instanceof Error ? erro.message : erro}). Publicando sem /blog.`)
   }
 }
 
