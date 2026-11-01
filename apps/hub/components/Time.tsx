@@ -133,7 +133,7 @@ export function PerfilTime() {
   async function salvar() {
     const atualizado = await api<UsuarioDTO>(`/acesso/usuarios/${pessoa!.id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ nome: pessoa!.nome, vinculo: pessoa!.vinculo, area: pessoa!.area, cidade: pessoa!.cidade, uf: pessoa!.uf, admin: pessoa!.admin, frentes: pessoa!.frentes, permissoes: pessoa!.permissoes, ativo: pessoa!.ativo }),
+      body: JSON.stringify({ nome: pessoa!.nome, vinculo: pessoa!.vinculo, area: pessoa!.area, cidade: pessoa!.cidade, uf: pessoa!.uf, latitude: pessoa!.latitude, longitude: pessoa!.longitude, admin: pessoa!.admin, frentes: pessoa!.frentes, permissoes: pessoa!.permissoes, ativo: pessoa!.ativo }),
     });
     setPessoa(atualizado);
     setAviso('Alterações salvas');

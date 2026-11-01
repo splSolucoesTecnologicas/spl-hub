@@ -273,6 +273,9 @@ input[type="checkbox"]:focus-visible { outline: 2px solid var(--green); outline-
 label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 
 .seletor-cidade-wrap { display: flex; flex-direction: column; gap: 8px; }
+.cep-busca { display: flex; flex-direction: column; gap: 8px; }
+.cep-achado { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: #0a0c0a; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.cep-achado p { margin: 0; font-size: 13px; line-height: 1.5; }
 .seletor-busca-resultados { max-height: 260px; border: 1px solid var(--line); border-radius: 14px; padding: 6px; background: #0a0c0a; }
 .seletor-cidade { display: grid; grid-template-columns: 1fr 220px; gap: 12px; background: #0a0c0a; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
 .seletor-cidade svg { width: 100%; height: 260px; display: block; }
