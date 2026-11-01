@@ -27,10 +27,31 @@ function pontoPessoa(pessoa: UsuarioDTO) {
   return geo ? projetar(geo.lat, geo.lon) : null;
 }
 
+/** Quem divide a mesma cidade ganha um lugar proprio num anelzinho — um ponto por pessoa. */
+function espalharColididos(lista: Marcador[]) {
+  const grupos = new Map<string, Marcador[]>();
+  for (const item of lista) {
+    const chave = `${item.x.toFixed(1)},${item.y.toFixed(1)}`;
+    const grupo = grupos.get(chave);
+    if (grupo) grupo.push(item);
+    else grupos.set(chave, [item]);
+  }
+  for (const grupo of grupos.values()) {
+    if (grupo.length < 2) continue;
+    const raio = 4.2 + (grupo.length - 2) * 0.85;
+    grupo.forEach((item, indice) => {
+      const angulo = (indice / grupo.length) * Math.PI * 2 - Math.PI / 2;
+      item.dx = Math.cos(angulo) * raio;
+      item.dy = Math.sin(angulo) * raio;
+    });
+  }
+  return lista;
+}
+
 const ALTURA_ROTULO = 13;
 const DESVIOS = [0, -ALTURA_ROTULO, ALTURA_ROTULO, -26, 26, -39, 39, -52, 52];
 
-type Marcador = { id: string; x: number; y: number; cor: string; nome: string; tipo: 'equipe' | 'cliente'; alvo?: string };
+type Marcador = { id: string; x: number; y: number; dx: number; dy: number; cor: string; nome: string; tipo: 'equipe' | 'cliente'; alvo?: string };
 type Vista = { k: number; x: number; y: number };
 
 /** Posiciona os rotulos em volta dos pontos sem deixar nenhum encostar no outro. */
@@ -39,7 +60,7 @@ function montarRotulos(marcadores: Marcador[], vista: Vista, mostrarClientes: bo
   const saida: (Marcador & { sx: number; sy: number; rx: number; ry: number; desvio: number; largura: number; esquerda: boolean })[] = [];
   const visiveis = marcadores
     .filter((item) => item.tipo === 'equipe' || mostrarClientes)
-    .map((item) => ({ ...item, sx: item.x * vista.k + vista.x, sy: item.y * vista.k + vista.y }))
+    .map((item) => ({ ...item, sx: item.x * vista.k + vista.x + item.dx, sy: item.y * vista.k + vista.y + item.dy }))
     .filter((item) => item.sx > -40 && item.sx < 680 && item.sy > -20 && item.sy < 660)
     .sort((a, b) => a.sy - b.sy);
   for (const item of visiveis) {
@@ -203,14 +224,14 @@ export function Inicio() {
     if (mostraEquipe) {
       for (const pessoa of pessoas) {
         const ponto = pontoPessoa(pessoa);
-        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, cor: '#00ff66', nome: pessoa.nome.split(' ')[0], tipo: 'equipe' });
+        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: '#00ff66', nome: pessoa.nome.split(' ')[0], tipo: 'equipe' });
       }
     }
     for (const item of clientes.filter(mostraCliente)) {
       const ponto = projetar(item.latitude, item.longitude);
-      lista.push({ id: `c-${item.id}`, x: ponto.x, y: ponto.y, cor: projetoDo(item.id)?.cor ?? '#8ba3b8', nome: item.nome, tipo: 'cliente', alvo: item.id });
+      lista.push({ id: `c-${item.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: projetoDo(item.id)?.cor ?? '#8ba3b8', nome: item.nome, tipo: 'cliente', alvo: item.id });
     }
-    return lista;
+    return espalharColididos(lista);
   }, [pessoas, clientes, projetos, filtro]);
 
   // Nomes de cliente so aparecem com o mapa aproximado — perto demais vira sopa de letras.
@@ -375,9 +396,9 @@ export function Inicio() {
                 transform={`translate(${marcador.x} ${marcador.y}) scale(${1 / vista.k})`}
                 onClick={marcador.alvo ? () => setAberto(marcador.alvo!) : undefined}
               >
-                <circle className="anel" r="6" />
-                <circle className="nucleo" r="1.9" />
-                <circle className="alvo" r="9" />
+                <circle className="anel" cx={marcador.dx} cy={marcador.dy} r="6" />
+                <circle className="nucleo" cx={marcador.dx} cy={marcador.dy} r="1.9" />
+                <circle className="alvo" cx={marcador.dx} cy={marcador.dy} r="9" />
               </g>
             ))}
           </g>
