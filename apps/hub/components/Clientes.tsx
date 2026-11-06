@@ -6,6 +6,7 @@ import type { CidadeGeo, ClienteDTO } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
 import { dados, nomeDaPessoa } from '@/lib/dados';
 import { pode } from '@/lib/pode';
+import { localDaCidade } from '@/lib/ponto';
 import { useAcao } from '@/lib/useAcao';
 import { useCarregamento } from '@/lib/useCarregamento';
 import { SeletorCidade } from './SeletorCidade';
@@ -15,15 +16,15 @@ type Rascunho = {
   nome: string;
   cidade: string;
   uf: string;
-  latitude: string;
-  longitude: string;
+  latitude: number | null;
+  longitude: number | null;
   status: string;
   responsavelId: string;
   ultimoContato: string;
   observacoes: string;
 };
 
-const vazio: Rascunho = { nome: '', cidade: '', uf: '', latitude: '', longitude: '', status: 'Ativo', responsavelId: '', ultimoContato: '', observacoes: '' };
+const vazio: Rascunho = { nome: '', cidade: '', uf: '', latitude: null, longitude: null, status: 'Ativo', responsavelId: '', ultimoContato: '', observacoes: '' };
 
 export function PaginaClientes() {
   const { usuario } = useSessao();
@@ -48,7 +49,7 @@ export function PaginaClientes() {
   function escolherCidade(cidade: CidadeGeo) {
     if (!rascunho) return;
     setAviso('');
-    setRascunho({ ...rascunho, cidade: cidade.nome, uf: cidade.uf, latitude: String(cidade.lat), longitude: String(cidade.lon) });
+    setRascunho({ ...rascunho, ...localDaCidade(cidade) });
   }
 
   async function salvar(evento: FormEvent) {
@@ -57,8 +58,8 @@ export function PaginaClientes() {
     if (!rascunho.cidade || !rascunho.uf) { setAviso('Escolha uma cidade no mapa.'); return; }
     const corpo = {
       nome: rascunho.nome, cidade: rascunho.cidade, uf: rascunho.uf, status: rascunho.status,
-      latitude: rascunho.latitude ? Number(rascunho.latitude) : undefined,
-      longitude: rascunho.longitude ? Number(rascunho.longitude) : undefined,
+      latitude: rascunho.latitude ?? undefined,
+      longitude: rascunho.longitude ?? undefined,
       responsavelId: rascunho.responsavelId || null,
       ultimoContato: rascunho.ultimoContato ? new Date(rascunho.ultimoContato).toISOString() : null,
       observacoes: rascunho.observacoes,
@@ -109,7 +110,7 @@ export function PaginaClientes() {
                   <Link href={`/?cliente=${cliente.id}`}>mapa</Link>
                   {edita && <button className="btn fantasma" type="button" onClick={() => abrir({
                     id: cliente.id, nome: cliente.nome, cidade: cliente.cidade, uf: cliente.uf,
-                    latitude: String(cliente.latitude), longitude: String(cliente.longitude), status: cliente.status,
+                    latitude: cliente.latitude, longitude: cliente.longitude, status: cliente.status,
                     responsavelId: cliente.responsavelId ?? '', ultimoContato: cliente.ultimoContato ? cliente.ultimoContato.slice(0, 10) : '', observacoes: cliente.observacoes,
                   })}>Editar</button>}
                   {edita && <button className="btn perigo" type="button" onClick={() => setConfirmar(cliente)}>Excluir</button>}

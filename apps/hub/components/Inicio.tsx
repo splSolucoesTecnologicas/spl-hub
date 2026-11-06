@@ -4,12 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
-import type { ClienteDTO, LayoutInicioDTO, UsuarioDTO } from '@spl/contracts';
-import { geocodificar } from '@spl/contracts';
+import type { LayoutInicioDTO } from '@spl/contracts';
 import { ESTADOS } from '@/lib/brasil';
-import { projetar } from '@/lib/geo';
 import { useSessao } from '@/lib/auth';
 import { dados, primeiroNome } from '@/lib/dados';
+import { marcadoresDoRadar, montarRotulos, projetoDoCliente, type Vista } from '@/lib/ponto';
 import { pode } from '@/lib/pode';
 import { useAcao } from '@/lib/useAcao';
 import { useCarregamento } from '@/lib/useCarregamento';
@@ -23,66 +22,6 @@ function quando(iso: string | null, atrasada: boolean) {
   if (atrasada) return `Atrasada ${data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
   if (data.toDateString() === new Date().toDateString()) return 'hoje';
   return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-}
-
-function pontoPessoa(pessoa: UsuarioDTO) {
-  if (pessoa.latitude != null && pessoa.longitude != null) return projetar(pessoa.latitude, pessoa.longitude);
-  if (!pessoa.cidade) return null;
-  const geo = geocodificar(pessoa.cidade, pessoa.uf);
-  return geo ? projetar(geo.lat, geo.lon) : null;
-}
-
-/** Quem divide a mesma cidade ganha um lugar proprio num anelzinho — um ponto por pessoa. */
-function espalharColididos(lista: Marcador[]) {
-  const grupos = new Map<string, Marcador[]>();
-  for (const item of lista) {
-    const chave = `${item.x.toFixed(1)},${item.y.toFixed(1)}`;
-    const grupo = grupos.get(chave);
-    if (grupo) grupo.push(item);
-    else grupos.set(chave, [item]);
-  }
-  for (const grupo of grupos.values()) {
-    if (grupo.length < 2) continue;
-    const raio = 4.2 + (grupo.length - 2) * 0.85;
-    grupo.forEach((item, indice) => {
-      const angulo = (indice / grupo.length) * Math.PI * 2 - Math.PI / 2;
-      item.dx = Math.cos(angulo) * raio;
-      item.dy = Math.sin(angulo) * raio;
-    });
-  }
-  return lista;
-}
-
-const ALTURA_ROTULO = 13;
-const DESVIOS = [0, -ALTURA_ROTULO, ALTURA_ROTULO, -26, 26, -39, 39, -52, 52];
-
-type Marcador = { id: string; x: number; y: number; dx: number; dy: number; cor: string; nome: string; tipo: 'equipe' | 'cliente'; alvo?: string };
-type Vista = { k: number; x: number; y: number };
-
-/** Posiciona os rotulos em volta dos pontos sem deixar nenhum encostar no outro. */
-function montarRotulos(marcadores: Marcador[], vista: Vista, mostrarClientes: boolean) {
-  const ocupados: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  const saida: (Marcador & { sx: number; sy: number; rx: number; ry: number; desvio: number; largura: number; esquerda: boolean })[] = [];
-  const visiveis = marcadores
-    .filter((item) => item.tipo === 'equipe' || mostrarClientes)
-    .map((item) => ({ ...item, sx: item.x * vista.k + vista.x + item.dx, sy: item.y * vista.k + vista.y + item.dy }))
-    .filter((item) => item.sx > -40 && item.sx < 680 && item.sy > -20 && item.sy < 660)
-    .sort((a, b) => a.sy - b.sy);
-  for (const item of visiveis) {
-    const largura = item.nome.length * 5.3 + 8;
-    const esquerda = item.sx > 520;
-    for (const desvio of DESVIOS) {
-      const ry = item.sy + 3.4 + desvio;
-      const rx = esquerda ? item.sx - 7 - largura : item.sx + 7;
-      const caixa = { x1: rx - 3, y1: ry - 9.5, x2: rx + largura, y2: ry + 4 };
-      const bate = ocupados.some((c) => caixa.x1 < c.x2 && caixa.x2 > c.x1 && caixa.y1 < c.y2 && caixa.y2 > c.y1);
-      if (bate) continue;
-      ocupados.push(caixa);
-      saida.push({ ...item, rx, ry, desvio, largura, esquerda });
-      break;
-    }
-  }
-  return saida;
 }
 
 const STATUS_ATIVO = new Set(['piloto', 'validacao', 'em_desenvolvimento', 'proposta']);
@@ -203,10 +142,8 @@ export function Inicio() {
   }
 
   const cliente = clientes.find((item) => item.id === aberto);
-  const projetoDo = (id: string) => projetos.find((item) => item.clienteIds.includes(id));
+  const projetoDo = (id: string) => projetoDoCliente(projetos, id);
   const estados = new Set(clientes.map((item) => item.uf));
-  const mostraEquipe = filtro === 'todos' || filtro === 'equipe';
-  const mostraCliente = (item: ClienteDTO) => filtro === 'todos' || filtro === 'clientes' || filtro === projetoDo(item.id)?.id;
   const projetosAtivos = projetos.filter((item) => STATUS_ATIVO.has(item.status));
   const tarefasSemana = tarefas.filter((item) => {
     if (!item.prazo) return false;
@@ -214,20 +151,7 @@ export function Inicio() {
     return dias <= 7 && (dias >= 0 || item.atrasada);
   });
 
-  const marcadores = useMemo<Marcador[]>(() => {
-    const lista: Marcador[] = [];
-    if (mostraEquipe) {
-      for (const pessoa of pessoas) {
-        const ponto = pontoPessoa(pessoa);
-        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: '#00ff66', nome: primeiroNome(pessoa.nome), tipo: 'equipe' });
-      }
-    }
-    for (const item of clientes.filter(mostraCliente)) {
-      const ponto = projetar(item.latitude, item.longitude);
-      lista.push({ id: `c-${item.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: projetoDo(item.id)?.cor ?? '#8ba3b8', nome: item.nome, tipo: 'cliente', alvo: item.id });
-    }
-    return espalharColididos(lista);
-  }, [pessoas, clientes, projetos, filtro]);
+  const marcadores = useMemo(() => marcadoresDoRadar({ pessoas, clientes, projetos, filtro }), [pessoas, clientes, projetos, filtro]);
 
   // Nomes de cliente so aparecem com o mapa aproximado — perto demais vira sopa de letras.
   const rotulos = useMemo(() => montarRotulos(marcadores, vista, vista.k >= 1.8), [marcadores, vista]);

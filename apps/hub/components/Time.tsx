@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import type { CidadeGeo, Nivel, Permissoes, UsuarioDTO } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
 import { dados } from '@/lib/dados';
+import { localDaCidade } from '@/lib/ponto';
 import { useAcao } from '@/lib/useAcao';
 import { useCarregamento } from '@/lib/useCarregamento';
 import { SeletorCidade } from './SeletorCidade';
@@ -25,15 +26,17 @@ export function ListaTime() {
   const time = useCarregamento(() => dados.pessoas.listar(), []);
   const acao = useAcao();
   const [aberto, setAberto] = useState(false);
-  const [form, setForm] = useState({ nome: '', email: '', senha: '', vinculo: 'colaborador' as 'socio' | 'colaborador', area: 'dev' as UsuarioDTO['area'], cidade: '', uf: '', admin: false });
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', vinculo: 'colaborador' as 'socio' | 'colaborador', area: 'dev' as UsuarioDTO['area'], admin: false });
+  const [local, setLocal] = useState<ReturnType<typeof localDaCidade> | null>(null);
   const pessoas = time.dados ?? [];
   const erro = acao.erro || (aberto ? '' : time.erro);
 
   async function criar(evento: FormEvent) {
     evento.preventDefault();
-    if (!await acao.executar(() => dados.pessoas.criar({ ...form, cidade: form.cidade || null, uf: form.uf || null }), 'Não foi possível adicionar')) return;
+    if (!await acao.executar(() => dados.pessoas.criar({ ...form, ...local }), 'Não foi possível adicionar')) return;
     setAberto(false);
-    setForm({ nome: '', email: '', senha: '', vinculo: 'colaborador', area: 'dev', cidade: '', uf: '', admin: false });
+    setForm({ nome: '', email: '', senha: '', vinculo: 'colaborador', area: 'dev', admin: false });
+    setLocal(null);
     await time.recarregar();
   }
 
@@ -76,12 +79,10 @@ export function ListaTime() {
                 {AREAS.map((area) => <option key={area} value={area}>{area}</option>)}
               </select>
             </label>
-            <div className="linha">
-              <label>Cidade<input className="campo" value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></label>
-              <label>UF<input className="campo" maxLength={2} value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })} /></label>
-            </div>
+            <label>Cidade {local ? <span className="aviso">· {local.cidade} · {local.uf}</span> : <span className="aviso">· opcional</span>}</label>
+            <SeletorCidade onEscolher={(cidade) => setLocal(localDaCidade(cidade))} />
             <label><span>Admin</span><input type="checkbox" checked={form.admin} onChange={(e) => setForm({ ...form, admin: e.target.checked })} /></label>
-            <p className="aviso">A senha inicial é o primeiro acesso. O ponto verde no mapa usa a cidade e a UF.</p>
+            <p className="aviso">A senha inicial é o primeiro acesso. O ponto verde no mapa usa a cidade escolhida.</p>
             <div className="linha">
               <button className="btn" type="submit">Adicionar</button>
               <button className="btn fantasma" type="button" onClick={() => { acao.limparErro(); setAberto(false); }}>Cancelar</button>
@@ -129,7 +130,7 @@ export function PerfilTime() {
   function patch(parcial: Partial<UsuarioDTO>) { setPessoa({ ...pessoa!, ...parcial }); }
 
   function escolherCidade(cidade: CidadeGeo) {
-    patch({ cidade: cidade.nome, uf: cidade.uf, latitude: cidade.lat, longitude: cidade.lon });
+    patch(localDaCidade(cidade));
     setEditandoCidade(false);
   }
 

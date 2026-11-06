@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CidadeGeo } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
 import { dados } from '@/lib/dados';
+import { localDaCidade } from '@/lib/ponto';
 import { useAcao } from '@/lib/useAcao';
 import { useCarregamento } from '@/lib/useCarregamento';
 import { SeletorCidade } from './SeletorCidade';
@@ -27,7 +28,7 @@ export function PaginaConfiguracoes() {
   async function escolherCidade(cidade: CidadeGeo) {
     setAviso('');
     const salvo = await acao.executar(async () => {
-      await dados.pessoas.atualizar(usuario.id, { cidade: cidade.nome, uf: cidade.uf, latitude: cidade.lat, longitude: cidade.lon });
+      await dados.pessoas.atualizar(usuario.id, localDaCidade(cidade));
       await recarregar();
     }, 'Não foi possível salvar');
     if (!salvo) return;

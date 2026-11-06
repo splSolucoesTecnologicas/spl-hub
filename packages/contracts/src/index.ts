@@ -1,5 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { geocodificar } from './cidades.js';
 
 extendZodWithOpenApi(z);
 
@@ -365,3 +366,43 @@ export const GithubOpcaoStatusSchema = z.object({ id: z.string(), nome: z.string
 export type GithubOpcaoStatusDTO = z.infer<typeof GithubOpcaoStatusSchema>;
 
 export { geocodificar, listarCidades, listarCidadesPorUf, type CidadeGeo } from './cidades.js';
+
+/** Onde uma pessoa ou um cliente fica no mapa. */
+export interface Local {
+  cidade?: string | null;
+  uf?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface Coordenada {
+  latitude: number;
+  longitude: number;
+  origem: 'exata' | 'centro_da_cidade';
+}
+
+/**
+ * Regra única do ponto no mapa, usada pela API ao gravar e pelo hub ao desenhar: a coordenada
+ * informada vence; sem ela vale o centro da cidade; cidade desconhecida não vira ponto.
+ */
+export function resolverCoordenada(local: Local): Coordenada | null {
+  if (local.latitude != null && local.longitude != null) return { latitude: local.latitude, longitude: local.longitude, origem: 'exata' };
+  if (!local.cidade) return null;
+  const cidade = geocodificar(local.cidade, local.uf);
+  return cidade ? { latitude: cidade.lat, longitude: cidade.lon, origem: 'centro_da_cidade' } : null;
+}
+
+/** Aplica uma mudança de local. Trocar de cidade sem mandar coordenada nova descarta a coordenada antiga. */
+export function localAtualizado(atual: Local, mudanca: Local): Required<Local> {
+  const cidade = mudanca.cidade !== undefined ? mudanca.cidade : atual.cidade ?? null;
+  const uf = mudanca.uf !== undefined ? mudanca.uf : atual.uf ?? null;
+  const trouxeCoordenada = mudanca.latitude !== undefined || mudanca.longitude !== undefined;
+  const mudouCidade = cidade !== (atual.cidade ?? null) || uf !== (atual.uf ?? null);
+  if (!trouxeCoordenada && mudouCidade) return { cidade, uf, latitude: null, longitude: null };
+  return {
+    cidade,
+    uf,
+    latitude: mudanca.latitude !== undefined ? mudanca.latitude : atual.latitude ?? null,
+    longitude: mudanca.longitude !== undefined ? mudanca.longitude : atual.longitude ?? null,
+  };
+}

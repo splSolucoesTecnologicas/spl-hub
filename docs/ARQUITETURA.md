@@ -33,5 +33,7 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 ## Hub
 As telas pedem dados a `apps/hub/lib/dados.ts` pelo nome do recurso: rotas, paginação por cursor, conferência com os schemas de `@spl/contracts` e cache de pessoas e clientes ficam ali. O transporte é o seam: HTTP em produção, em memória nos testes (`pnpm --filter @spl/hub test`). Carga e erro passam por `useCarregamento` e `useAcao`.
 
+O ponto no mapa segue uma regra só, `resolverCoordenada` em `@spl/contracts`: coordenada exata, senão o centro da cidade. A API a aplica ao gravar clientes (que sempre precisam de ponto) e o hub ao desenhar o Radar (`apps/hub/lib/ponto.ts`, com espalhamento e rótulos). Trocar de cidade sem coordenada nova descarta a antiga (`localAtualizado`). O CEP entra por `apps/hub/lib/cep.ts`, com a consulta à BrasilAPI como seam.
+
 ## Testes
 Domínio e casos de uso sem I/O. Integração com `app.inject`. Postgres real só se `TEST_DATABASE_URL` estiver definida — o padrão da suíte é o adapter em memória.
