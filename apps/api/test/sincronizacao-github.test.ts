@@ -101,7 +101,7 @@ describe('Sincronização com GitHub: saída', () => {
 describe('Sincronização com GitHub: entrada', () => {
   it('issue aberta no GitHub vira tarefa, sem diferenciar maiúsculas no repositório', async () => {
     const { tarefas, sync } = await montar({ repositorio: 'SPL/Teste', mapa: null });
-    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 7, titulo: 'Bug achado', estado: 'open', corpo: null });
+    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 7, titulo: 'Bug achado', estado: 'open', corpo: null, criadaPeloHub: false });
     const [criada] = await tarefas.listarTodas();
     expect(criada?.githubIssueNumero).toBe(7);
     expect(criada?.referencia).toBe('SPL/Teste#7');
@@ -111,16 +111,35 @@ describe('Sincronização com GitHub: entrada', () => {
   it('o webhook da issue que o Hub acabou de criar não duplica a tarefa', async () => {
     const { tarefas, sync, tarefa } = await montar();
     await tarefa('Criada no Hub');
-    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 401, titulo: 'Criada no Hub', estado: 'open', corpo: marcadorDaTarefa('tarefa-1') });
+    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 401, titulo: 'Criada no Hub', estado: 'open', corpo: marcadorDaTarefa('tarefa-1'), criadaPeloHub: true });
     const todas = await tarefas.listarTodas();
     expect(todas).toHaveLength(1);
     expect(todas[0]?.githubIssueNumero).toBe(401);
   });
 
+  it('marcador em issue que não veio do App do Hub não toma conta da tarefa', async () => {
+    const { tarefas, sync, tarefa } = await montar();
+    await tarefa('Tarefa legítima');
+    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 7, titulo: 'Issue forjada', estado: 'closed', corpo: marcadorDaTarefa('tarefa-1'), criadaPeloHub: false });
+    const original = await tarefas.buscarPorId('tarefa-1');
+    expect(original?.titulo).toBe('Tarefa legítima');
+    expect(original?.githubIssueNumero).toBeNull();
+    expect(await tarefas.listarTodas()).toHaveLength(2);
+  });
+
+  it('marcador nunca religa uma tarefa que já aponta para outra issue', async () => {
+    const { tarefas, sync, tarefa } = await montar();
+    await tarefa('Já ligada', { issue: 5 });
+    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'spl/teste', numero: 9, titulo: 'Outra issue', estado: 'open', corpo: marcadorDaTarefa('tarefa-1'), criadaPeloHub: true });
+    const original = await tarefas.buscarPorId('tarefa-1');
+    expect(original?.githubIssueNumero).toBe(5);
+    expect(original?.titulo).toBe('Já ligada');
+  });
+
   it('fechar e reabrir a issue leva a tarefa para feito e de volta para a fazer', async () => {
     const { tarefas, sync, tarefa } = await montar();
     await tarefa('Em revisão', { coluna: 'revisao', issue: 7 });
-    const evento = { tipo: 'issue', repositorio: 'spl/teste', numero: 7, titulo: 'Em revisão', corpo: null } as const;
+    const evento = { tipo: 'issue', repositorio: 'spl/teste', numero: 7, titulo: 'Em revisão', corpo: null, criadaPeloHub: false } as const;
     await sync.aplicarEvento({ ...evento, acao: 'edited', estado: 'open' });
     expect((await tarefas.buscarPorId('tarefa-1'))?.coluna).toBe('revisao');
     await sync.aplicarEvento({ ...evento, acao: 'closed', estado: 'closed' });
@@ -148,7 +167,7 @@ describe('Sincronização com GitHub: entrada', () => {
 
   it('ignora eventos de repositório sem projeto vinculado', async () => {
     const { tarefas, sync } = await montar();
-    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'outro/repo', numero: 1, titulo: 'Alheia', estado: 'open', corpo: null });
+    await sync.aplicarEvento({ tipo: 'issue', acao: 'opened', repositorio: 'outro/repo', numero: 1, titulo: 'Alheia', estado: 'open', corpo: null, criadaPeloHub: false });
     expect(await tarefas.listarTodas()).toHaveLength(0);
   });
 });

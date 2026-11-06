@@ -19,8 +19,11 @@ export function verificarAssinatura(corpoBruto: Buffer, assinaturaHeader: string
   return timingSafeEqual(esperada, recebida);
 }
 
-/** Traduz o payload do GitHub. Eventos que o Hub não acompanha, ou malformados, viram null. */
-export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unknown): EventoGithub | null {
+/**
+ * Traduz o payload do GitHub. Eventos que o Hub não acompanha, ou malformados, viram null.
+ * `githubAppId` é o App do Hub: issue que ele criou vem com `performed_via_github_app.id` igual.
+ */
+export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unknown, githubAppId: string | null): EventoGithub | null {
   const raiz = objeto(payload);
   if (!raiz) return null;
   const acao = texto(raiz.action);
@@ -31,7 +34,9 @@ export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unkno
     const titulo = texto(issue.title);
     const estado = issue.state;
     if (typeof issue.number !== 'number' || !titulo || (estado !== 'open' && estado !== 'closed')) return null;
-    return { tipo: 'issue', acao, repositorio, numero: issue.number, titulo, estado, corpo: texto(issue.body) };
+    const appDaIssue = objeto(issue.performed_via_github_app)?.id;
+    const criadaPeloHub = githubAppId != null && appDaIssue != null && String(appDaIssue) === githubAppId;
+    return { tipo: 'issue', acao, repositorio, numero: issue.number, titulo, estado, corpo: texto(issue.body), criadaPeloHub };
   }
   if (nomeDoEvento === 'projects_v2_item' && acao === 'edited') {
     const opcaoStatusId = texto(objeto(objeto(objeto(raiz.changes)?.field_value)?.to)?.id);
@@ -45,6 +50,7 @@ export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unkno
 interface DepsWebhook {
   tarefas: CasosDeUsoTarefas;
   webhookSecret: string | null;
+  githubAppId: string | null;
 }
 
 export function githubWebhookRoutes(deps: DepsWebhook) {
@@ -61,7 +67,7 @@ export function githubWebhookRoutes(deps: DepsWebhook) {
         if (!deps.webhookSecret || !verificarAssinatura(rawBody, assinatura, deps.webhookSecret)) {
           return reply.code(401).send({ erro: 'assinatura_invalida' });
         }
-        const evento = eventoDoPayload(req.headers['x-github-event'] as string | undefined, req.body);
+        const evento = eventoDoPayload(req.headers['x-github-event'] as string | undefined, req.body, deps.githubAppId);
         if (evento) {
           // O GitHub espera 200 rápido; a falha fica no log e a ressincronização manual cobre o que faltar.
           try {

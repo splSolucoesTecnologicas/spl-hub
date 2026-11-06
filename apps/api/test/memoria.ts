@@ -38,7 +38,7 @@ export function memoria(): Dependencias & { acesso: ReturnType<typeof criarCasos
 export async function adminLogado() {
   const deps = memoria();
   await deps.acesso.criarUsuario({ nome: 'Admin Teste', email: 'admin@splsolucoes.com', senha: 'SplExemplo#2026', vinculo: 'socio', area: 'dev', admin: true });
-  const app = buildApp(deps, { corsOrigens: ['http://localhost:3000'], githubWebhookSecret: null });
+  const app = buildApp(deps, { corsOrigens: ['http://localhost:3000'], githubWebhookSecret: null, github: { adapter: 'fake' } });
   await app.ready();
   const login = await app.inject({ method: 'POST', url: '/acesso/login', payload: { email: 'admin@splsolucoes.com', senha: 'SplExemplo#2026' } });
   return { app, deps, token: login.json().token as string };

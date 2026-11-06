@@ -15,6 +15,8 @@ export type EventoGithub =
     titulo: string;
     estado: 'open' | 'closed';
     corpo: string | null;
+    /** O GitHub informa que a issue foi criada pelo App do Hub. Só então o marcador do corpo vale. */
+    criadaPeloHub: boolean;
   }
   | { tipo: 'item_do_board'; itemNodeId: string; opcaoStatusId: string };
 
@@ -94,13 +96,16 @@ export function criarSincronizacaoGithub(deps: SincronizacaoGithubDeps) {
     return true;
   }
 
-  async function tarefaDaIssue(projetoId: string, numero: number, corpo: string | null): Promise<Tarefa | null> {
-    const marcada = tarefaIdDoCorpo(corpo);
+  async function tarefaDaIssue(projetoId: string, evento: Extract<EventoGithub, { tipo: 'issue' }>): Promise<Tarefa | null> {
+    // Qualquer pessoa com acesso ao repositório escreve no corpo da issue: o marcador só vale em issue criada
+    // pelo App do Hub e nunca religa uma tarefa que já aponta para outra issue.
+    const marcada = evento.criadaPeloHub ? tarefaIdDoCorpo(evento.corpo) : null;
     if (marcada) {
       const tarefa = await tarefas.buscarPorId(marcada);
-      if (tarefa?.projetoId === projetoId) return tarefa;
+      const livre = tarefa?.projetoId === projetoId && (tarefa.githubIssueNumero == null || tarefa.githubIssueNumero === evento.numero);
+      if (tarefa && livre) return tarefa;
     }
-    return tarefas.buscarPorIssue(projetoId, numero);
+    return tarefas.buscarPorIssue(projetoId, evento.numero);
   }
 
   async function aplicarIssue(evento: Extract<EventoGithub, { tipo: 'issue' }>): Promise<void> {
@@ -109,7 +114,7 @@ export function criarSincronizacaoGithub(deps: SincronizacaoGithubDeps) {
     if (!projeto || !vinculo) return;
     const agora = relogio.agora();
     const referencia = vinculo.referencia(evento.numero);
-    const existente = await tarefaDaIssue(projeto.id, evento.numero, evento.corpo);
+    const existente = await tarefaDaIssue(projeto.id, evento);
     if (existente) {
       existente.atualizar({ titulo: evento.titulo, coluna: colunaPelaIssue(evento.estado, existente.coluna) }, agora);
       existente.vincularGithub({ issueNumero: evento.numero, referencia });

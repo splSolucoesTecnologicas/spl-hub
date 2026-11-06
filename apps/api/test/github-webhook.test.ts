@@ -25,13 +25,25 @@ describe('verificarAssinatura', () => {
 describe('eventoDoPayload', () => {
   it('traduz a mudança de status de um item do board', () => {
     const payload = { action: 'edited', projects_v2_item: { node_id: 'PVTI_1' }, changes: { field_value: { to: { id: 'opt-feito' } } } };
-    expect(eventoDoPayload('projects_v2_item', payload)).toEqual({ tipo: 'item_do_board', itemNodeId: 'PVTI_1', opcaoStatusId: 'opt-feito' });
+    expect(eventoDoPayload('projects_v2_item', payload, null)).toEqual({ tipo: 'item_do_board', itemNodeId: 'PVTI_1', opcaoStatusId: 'opt-feito' });
   });
 
   it('ignora eventos que o Hub não acompanha e payload malformado', () => {
-    expect(eventoDoPayload('push', { ref: 'main' })).toBeNull();
-    expect(eventoDoPayload('issues', { action: 'labeled', issue: { number: 1, title: 'x', state: 'open' }, repository: { full_name: 'a/b' } })).toBeNull();
-    expect(eventoDoPayload('issues', { action: 'opened', issue: { number: '1' }, repository: { full_name: 'a/b' } })).toBeNull();
+    expect(eventoDoPayload('push', { ref: 'main' }, null)).toBeNull();
+    expect(eventoDoPayload('issues', { action: 'labeled', issue: { number: 1, title: 'x', state: 'open' }, repository: { full_name: 'a/b' } }, null)).toBeNull();
+    expect(eventoDoPayload('issues', { action: 'opened', issue: { number: '1' }, repository: { full_name: 'a/b' } }, null)).toBeNull();
+  });
+
+  it('só marca como criada pelo Hub a issue que o GitHub atribui ao App configurado', () => {
+    const issue = (app: unknown) => ({ action: 'opened', repository: { full_name: 'a/b' }, issue: { number: 1, title: 'Bug', state: 'open', body: null, performed_via_github_app: app } });
+    const criada = (payload: unknown, appId: string | null) => {
+      const evento = eventoDoPayload('issues', payload, appId);
+      return evento?.tipo === 'issue' ? evento.criadaPeloHub : undefined;
+    };
+    expect(criada(issue({ id: 5557350 }), '5557350')).toBe(true);
+    expect(criada(issue({ id: 999 }), '5557350')).toBe(false);
+    expect(criada(issue(null), '5557350')).toBe(false);
+    expect(criada(issue({ id: 5557350 }), null)).toBe(false);
   });
 });
 
@@ -44,7 +56,7 @@ describe('POST /github/webhook', () => {
     const projetos = new InMemoryProjetoRepository();
     const casos = criarCasosDeUsoTarefas({ repo: tarefas, projetos, github: new FakeGitHubProjetos(), relogio: { agora: () => AGORA }, ids: { novo: () => 'nova-tarefa-1' } });
     const app = Fastify();
-    app.register(githubWebhookRoutes({ tarefas: casos, webhookSecret: SECRET }));
+    app.register(githubWebhookRoutes({ tarefas: casos, webhookSecret: SECRET, githubAppId: null }));
     return { app, tarefas, projetos };
   }
 

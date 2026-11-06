@@ -42,7 +42,7 @@ export interface Dependencias {
   ids: GeradorId;
 }
 
-export type OpcoesDoApp = Pick<Configuracao, 'corsOrigens' | 'githubWebhookSecret'>;
+export type OpcoesDoApp = Pick<Configuracao, 'corsOrigens' | 'githubWebhookSecret' | 'github'>;
 
 export function buildApp(deps: Dependencias, opcoes: OpcoesDoApp) {
   const app = Fastify({ logger: false });
@@ -56,7 +56,9 @@ export function buildApp(deps: Dependencias, opcoes: OpcoesDoApp) {
   const operacao = criarCasosDeUsoOperacao(deps);
   app.register(acessoRoutes(acesso));
   app.register(tarefasRoutes(tarefas, acesso, () => deps.relogio.agora()));
-  app.register(githubWebhookRoutes({ tarefas, webhookSecret: opcoes.githubWebhookSecret }));
+  app.register(githubWebhookRoutes({
+    tarefas, webhookSecret: opcoes.githubWebhookSecret, githubAppId: opcoes.github.adapter === 'app' ? opcoes.github.appId : null,
+  }));
   app.register(blogRoutes(blog, acesso));
   app.register(operacaoRoutes(operacao, acesso));
   app.register(thumdraRoutes(deps.thumdra, acesso));
