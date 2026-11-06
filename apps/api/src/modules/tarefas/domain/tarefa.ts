@@ -1,7 +1,7 @@
 import { ErroDeDominio } from '../../../shared/domain/erro-de-dominio.js';
+import { COLUNAS, type Coluna } from '../../../shared/domain/coluna.js';
 
-export const COLUNAS = ['a_fazer', 'fazendo', 'revisao', 'feito'] as const;
-export type Coluna = (typeof COLUNAS)[number];
+export { COLUNAS, type Coluna };
 export const PRODUTOS = ['thumdra', 'corujuris', 'spl', 'hub', 'infra', 'sob_medida'] as const;
 export type Produto = (typeof PRODUTOS)[number];
 
@@ -81,14 +81,14 @@ export class Tarefa {
     this.props.atualizadaEm = agora;
   }
 
-  marcarSincronizada(referencia: string | null, agora: Date): void {
-    if (referencia) this.props.referencia = referencia;
+  marcarSincronizada(agora: Date): void {
     this.props.sincronizadaEm = agora;
   }
 
-  vincularGithub(issueNumero: number, _issueNodeId: string | null, itemNodeId: string | null): void {
-    this.props.githubIssueNumero = issueNumero;
-    if (itemNodeId) this.props.githubItemNodeId = itemNodeId;
+  vincularGithub(vinculo: { issueNumero: number; referencia: string; itemNodeId?: string | null }): void {
+    this.props.githubIssueNumero = vinculo.issueNumero;
+    this.props.referencia = vinculo.referencia;
+    if (vinculo.itemNodeId) this.props.githubItemNodeId = vinculo.itemNodeId;
   }
 
   estaAtrasada(agora: Date): boolean {

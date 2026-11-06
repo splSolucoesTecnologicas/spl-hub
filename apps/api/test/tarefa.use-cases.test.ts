@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { criarCasosDeUsoTarefas } from '../src/modules/tarefas/application/use-cases.js';
 import { Projeto } from '../src/modules/operacao/domain/projeto.js';
-import type { FakeGitHubProjetos } from '../src/modules/tarefas/adapters/out/fake-github-projetos.js';
+import type { FakeGitHubProjetos } from '../src/integrations/github/fake-github-projetos.js';
 import { memoria } from './memoria.js';
 
 describe('Casos de uso de tarefas', () => {
-  it('cria, move de coluna e sincroniza no fake do GitHub', async () => {
+  it('cria, move de coluna e não inventa referência para tarefa sem projeto', async () => {
     const deps = memoria();
     const admin = await deps.acesso.criarUsuario({ nome: 'Admin', email: 'admin@splsolucoes.com', senha: 'SplExemplo#2026', vinculo: 'socio', area: 'dev', admin: true });
     const casos = criarCasosDeUsoTarefas({ repo: deps.tarefas, github: deps.github, projetos: deps.projetos, relogio: deps.relogio, ids: deps.ids });
@@ -14,9 +14,10 @@ describe('Casos de uso de tarefas', () => {
     expect((await casos.atualizar(admin, criada.id, { coluna: 'fazendo' })).coluna).toBe('fazendo');
     const sync = await casos.sincronizar(admin);
     expect(sync.modo).toBe('fake');
-    expect(sync.sincronizadas).toBe(1);
+    expect(sync.sincronizadas).toBe(0);
+    expect(sync.detalhes).toContain('1 sem board');
     const lista = await casos.listar(admin, { filtro: 'minhas' });
-    expect(lista.itens[0]?.referencia).toMatch(/^spl-hub#/);
+    expect(lista.itens[0]?.referencia).toBeNull();
   });
 
   it('cria a issue no GitHub quando a tarefa pertence a um projeto vinculado', async () => {

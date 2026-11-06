@@ -1,3 +1,4 @@
+import { localAtualizado } from '@spl/contracts';
 import { ErroDeDominio } from '../../../shared/domain/erro-de-dominio.js';
 import type { GeradorId, Relogio } from '../../../shared/application/tempo.js';
 import { DesafioTotp, Sessao, SolicitacaoAcesso } from '../domain/sessao.js';
@@ -110,7 +111,8 @@ export function criarCasosDeUsoAcesso(deps: {
         const admins = await usuarios.contarAdmins();
         if (admins <= 1) throw new ErroDeDominio('ultimo_admin', 'Não é possível desativar o último admin');
       }
-      alvo.alterarPerfil(entrada);
+      // Pessoa pode ficar sem coordenada (o hub cai no centro da cidade), mas nunca com a coordenada da cidade antiga.
+      alvo.alterarPerfil({ ...entrada, ...localAtualizado(alvo, entrada) });
       if (ator.admin && input.admin !== undefined) alvo.definirAdmin(input.admin);
       if (ator.admin && input.permissoes) alvo.definirPermissoes(input.permissoes);
       if (souEu && input.layoutInicio !== undefined) alvo.definirLayoutInicio(input.layoutInicio);

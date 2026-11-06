@@ -21,3 +21,4 @@ jobs:
       - run: pnpm --filter @spl/api test
       - run: pnpm --filter @spl/api typecheck
       - run: pnpm --filter @spl/hub typecheck
+      - run: pnpm --filter @spl/hub test

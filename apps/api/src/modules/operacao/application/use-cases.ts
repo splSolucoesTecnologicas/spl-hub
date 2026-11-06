@@ -1,22 +1,21 @@
-import { geocodificar } from '@spl/contracts';
+import { localAtualizado, resolverCoordenada, type Local } from '@spl/contracts';
 import { ErroDeDominio } from '../../../shared/domain/erro-de-dominio.js';
 import type { GeradorId, Relogio } from '../../../shared/application/tempo.js';
 import type { Usuario } from '../../acesso/domain/usuario.js';
 import { Cliente } from '../domain/cliente.js';
 import { Projeto, type MarcoProjeto, type ResponsavelProjeto, type StatusProjeto, type TipoProjeto } from '../domain/projeto.js';
 import { Decisao, Objetivo } from '../domain/socios.js';
-import type { ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './ports.js';
-import type { GitHubProjetos } from '../../tarefas/application/ports/tarefa-repository.js';
+import type { CatalogoGithub, ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './ports.js';
 
 export class RegistroNaoEncontrado extends ErroDeDominio {
   constructor(mensagem: string) { super('nao_encontrada', mensagem); }
 }
 
-function coordsDe(input: { cidade: string; uf: string; latitude?: number; longitude?: number }): { latitude: number; longitude: number } {
-  if (input.latitude != null && input.longitude != null) return { latitude: input.latitude, longitude: input.longitude };
-  const geo = geocodificar(input.cidade, input.uf);
-  if (!geo) throw new ErroDeDominio('cidade_sem_coordenada', 'Cidade não reconhecida. Informe latitude e longitude ou escolha o ponto no mapa');
-  return { latitude: geo.lat, longitude: geo.lon };
+/** Cliente sempre tem ponto no mapa: a regra do contrato decide qual, e a falta dele recusa a gravação. */
+function pontoDoCliente(local: Local): { latitude: number; longitude: number } {
+  const ponto = resolverCoordenada(local);
+  if (!ponto) throw new ErroDeDominio('cidade_sem_coordenada', 'Cidade não reconhecida. Informe latitude e longitude ou escolha o ponto no mapa');
+  return { latitude: ponto.latitude, longitude: ponto.longitude };
 }
 
 function vazio(valor: string | null | undefined): string | null {
@@ -29,7 +28,7 @@ export function criarCasosDeUsoOperacao(deps: {
   projetos: ProjetoRepository;
   decisoes: DecisaoRepository;
   objetivos: ObjetivoRepository;
-  github: GitHubProjetos;
+  github: CatalogoGithub;
   relogio: Relogio;
   ids: GeradorId;
 }) {
@@ -58,7 +57,7 @@ export function criarCasosDeUsoOperacao(deps: {
       responsavelId?: string | null; ultimoContato?: Date | null; observacoes?: string;
     }) {
       ator.exigir('clientes', 'editar');
-      const ponto = coordsDe(input);
+      const ponto = pontoDoCliente(input);
       const cliente = Cliente.criar({ id: ids.novo(), agora: relogio.agora(), ...input, ...ponto });
       await clientes.salvar(cliente);
       return cliente;
@@ -71,13 +70,7 @@ export function criarCasosDeUsoOperacao(deps: {
       ator.exigir('clientes', 'editar');
       const cliente = await clientes.buscarPorId(id);
       if (!cliente) throw new RegistroNaoEncontrado('Cliente não encontrado');
-      const cidade = input.cidade ?? cliente.cidade;
-      const uf = input.uf ?? cliente.uf;
-      const ponto = coordsDe({
-        cidade, uf,
-        latitude: input.latitude ?? (input.cidade || input.uf ? undefined : cliente.latitude),
-        longitude: input.longitude ?? (input.cidade || input.uf ? undefined : cliente.longitude),
-      });
+      const ponto = pontoDoCliente(localAtualizado(cliente, input));
       cliente.atualizar({ ...input, ...ponto }, relogio.agora());
       await clientes.salvar(cliente);
       return cliente;
