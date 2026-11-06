@@ -3,10 +3,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import type { GithubStatusDTO, TarefaDTO, UsuarioDTO } from '@spl/contracts';
 import { api, type Pagina } from '@/lib/api';
+import { COLUNAS } from '@/lib/colunas';
 
-const COLUNAS: { id: TarefaDTO['coluna']; nome: string }[] = [
-  { id: 'a_fazer', nome: 'A fazer' }, { id: 'fazendo', nome: 'Fazendo' }, { id: 'revisao', nome: 'Revisão' }, { id: 'feito', nome: 'Feito' },
-];
 const PRODUTO: Record<TarefaDTO['produto'], { nome: string; classe: string }> = {
   thumdra: { nome: 'Thumdra', classe: 'blue' }, corujuris: { nome: 'Corujuris', classe: 'purple' }, spl: { nome: 'SPL', classe: 'grey' },
   hub: { nome: 'Hub', classe: 'green' }, infra: { nome: 'Infra', classe: 'grey' }, sob_medida: { nome: 'Sob medida', classe: 'amber' },

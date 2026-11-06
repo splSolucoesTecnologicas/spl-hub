@@ -13,10 +13,11 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 
 ## Módulos deste corte
 - **acesso** — login e-mail + senha, TOTP, sessão, vínculo sócio/colaborador, área, permissões por módulo, auditoria.
-- **tarefas** — CRUD e colunas do quadro. Porta `GitHubProjetos`: fake em memória (padrão) e adapter HTTP esboçado quando `GITHUB_ADAPTER=http`.
+- **tarefas** — CRUD e colunas do quadro. A sincronização com o GitHub vive inteira em `application/sincronizacao-github.ts`: envio da Tarefa como issue e status no board, eventos do webhook, importação de issues e ressincronização manual. O webhook só verifica a assinatura e traduz o payload.
+- **operacao** — clientes, projetos, decisões e objetivos. O Projeto guarda o `VinculoGithub` (repositório, board e mapa coluna ⇄ opção de status); a porta `CatalogoGithub` lista repositórios, boards e opções para a tela de edição.
 - **blog** — publicação autenticada e leitura pública (`GET /blog`, `GET /blog/:slug`) consumida pela landing.
 
-`integrations/thumdra` segue o template: porta `ThumdraAdminClient`, fake e HTTP com client credentials em `/admin/v1`.
+`integrations/github` tem os adapters do GitHub (App real e fake em memória), cada um atendendo `GitHubProjetos` e `CatalogoGithub`. `integrations/thumdra` segue o template: porta `ThumdraAdminClient`, fake e HTTP com client credentials em `/admin/v1`.
 
 ## Regras
 1. Domínio valida invariantes e lança `ErroDeDominio`.

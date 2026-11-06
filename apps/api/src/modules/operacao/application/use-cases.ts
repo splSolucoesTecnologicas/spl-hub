@@ -5,8 +5,7 @@ import type { Usuario } from '../../acesso/domain/usuario.js';
 import { Cliente } from '../domain/cliente.js';
 import { Projeto, type MarcoProjeto, type ResponsavelProjeto, type StatusProjeto, type TipoProjeto } from '../domain/projeto.js';
 import { Decisao, Objetivo } from '../domain/socios.js';
-import type { ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './ports.js';
-import type { GitHubProjetos } from '../../tarefas/application/ports/tarefa-repository.js';
+import type { CatalogoGithub, ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './ports.js';
 
 export class RegistroNaoEncontrado extends ErroDeDominio {
   constructor(mensagem: string) { super('nao_encontrada', mensagem); }
@@ -29,7 +28,7 @@ export function criarCasosDeUsoOperacao(deps: {
   projetos: ProjetoRepository;
   decisoes: DecisaoRepository;
   objetivos: ObjetivoRepository;
-  github: GitHubProjetos;
+  github: CatalogoGithub;
   relogio: Relogio;
   ids: GeradorId;
 }) {

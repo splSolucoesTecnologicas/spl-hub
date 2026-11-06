@@ -4,12 +4,11 @@ import { buildApp, type Dependencias } from './app.js';
 import { senhas, tokens, totp } from './modules/acesso/adapters/out/crypto.js';
 import { InMemoryAuditoriaRepository, InMemoryDesafioRepository, InMemorySessaoRepository, InMemorySolicitacaoRepository, InMemoryUsuarioRepository } from './modules/acesso/adapters/out/in-memory-acesso.js';
 import { InMemoryTarefaRepository } from './modules/tarefas/adapters/out/in-memory-tarefa-repository.js';
-import { FakeGitHubProjetos } from './modules/tarefas/adapters/out/fake-github-projetos.js';
-import { AppGitHubProjetos } from './modules/tarefas/adapters/out/app-github-projetos.js';
+import { FakeGitHubProjetos } from './integrations/github/fake-github-projetos.js';
+import { AppGitHubProjetos } from './integrations/github/app-github-projetos.js';
 import { InMemoryNoticiaRepository } from './modules/blog/adapters/out/in-memory-noticia-repository.js';
 import { FakeThumdraAdminClient } from './integrations/thumdra/fake-thumdra-admin-client.js';
 import { HttpThumdraAdminClient } from './integrations/thumdra/http-thumdra-admin-client.js';
-import type { GitHubProjetos } from './modules/tarefas/application/ports/tarefa-repository.js';
 import type { ThumdraAdminClient } from './integrations/thumdra/thumdra-admin-client.js';
 import { AvisoPaginasGithub } from './modules/blog/adapters/out/aviso-paginas.js';
 import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoRepository, InMemoryProjetoRepository } from './modules/operacao/adapters/out/memoria.js';
@@ -34,7 +33,7 @@ function chavePrivadaGithub(): string | undefined {
     : process.env.GITHUB_APP_PRIVATE_KEY;
 }
 
-function githubDe(): GitHubProjetos {
+function githubDe(): Dependencias['github'] {
   const chavePrivada = chavePrivadaGithub();
   console.log(
     `github env: GITHUB_ADAPTER=${JSON.stringify(process.env.GITHUB_ADAPTER)} `

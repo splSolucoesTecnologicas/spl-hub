@@ -11,6 +11,14 @@ export class PrismaTarefaRepository implements TarefaRepository {
     await this.db.tarefa.upsert({ where: { id: dados.id }, create: dados, update: { ...dados, id: undefined } });
   }
   async buscarPorId(id: string) { const row = await this.db.tarefa.findUnique({ where: { id } }); return row ? de(row as TarefaProps) : null; }
+  async buscarPorIssue(projetoId: string, issueNumero: number) {
+    const row = await this.db.tarefa.findFirst({ where: { projetoId, githubIssueNumero: issueNumero } });
+    return row ? de(row as TarefaProps) : null;
+  }
+  async buscarPorItemDoBoard(itemNodeId: string) {
+    const row = await this.db.tarefa.findFirst({ where: { githubItemNodeId: itemNodeId } });
+    return row ? de(row as TarefaProps) : null;
+  }
   async remover(id: string) { await this.db.tarefa.deleteMany({ where: { id } }); }
   async listarTodas() { const rows = await this.db.tarefa.findMany(); return rows.map((row) => de(row as TarefaProps)); }
   async listar({ limite, cursor, coluna, responsavelId, produto }: { limite: number; cursor?: string; coluna?: Coluna; responsavelId?: string; produto?: Produto }) {

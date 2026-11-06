@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import type { ClienteDTO, ProjetoDTO, UsuarioDTO } from '@spl/contracts';
 import { api, type Pagina, type TarefaDTO } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
+import { COLUNAS, mapaDeColunasCompleto, nomeDaColuna } from '@/lib/colunas';
 import { pode } from '@/lib/pode';
 import { Quadro } from './Quadro';
 
@@ -74,11 +75,12 @@ function deProjeto(projeto: ProjetoDTO): Rascunho {
 
 function corpoDe(rascunho: Rascunho) {
   const responsaveis = Object.entries(rascunho.responsaveis).flatMap(([area, ids]) => ids.filter(Boolean).map((usuarioId) => ({ area, usuarioId })));
+  const githubProjectNumero = rascunho.githubProjectNumero ? Number(rascunho.githubProjectNumero) : null;
   return {
     nome: rascunho.nome, tipo: rascunho.tipo, status: rascunho.status, descricao: rascunho.descricao, cor: rascunho.cor,
     repositorio: rascunho.repositorio || null, quadroUrl: rascunho.quadroUrl || null, adminUrl: rascunho.adminUrl || null,
-    githubProjectNumero: rascunho.githubProjectNumero ? Number(rascunho.githubProjectNumero) : null,
-    githubColunaMap: Object.keys(rascunho.githubColunaMap).length === 4 ? rascunho.githubColunaMap : null,
+    githubProjectNumero,
+    githubColunaMap: githubProjectNumero != null && mapaDeColunasCompleto(rascunho.githubColunaMap) ? rascunho.githubColunaMap : null,
     progresso: Number(rascunho.progresso || 0), progressoRotulo: rascunho.progressoRotulo, responsaveis, clienteIds: rascunho.clienteIds,
   };
 }
@@ -173,10 +175,6 @@ export function ListaProjetos() {
   );
 }
 
-const COLUNAS_MAPA: { id: 'a_fazer' | 'fazendo' | 'revisao' | 'feito'; nome: string }[] = [
-  { id: 'a_fazer', nome: 'A fazer' }, { id: 'fazendo', nome: 'Fazendo' }, { id: 'revisao', nome: 'Revisão' }, { id: 'feito', nome: 'Feito' },
-];
-
 function RepositorioGithubInput({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
   const [repos, setRepos] = useState<{ owner: string; nome: string }[]>([]);
 
@@ -222,9 +220,12 @@ function VinculoGithub({ rascunho, setRascunho }: { rascunho: Rascunho; setRascu
           {boards.map((board) => <option key={board.numero} value={board.numero}>{board.titulo}</option>)}
         </select>
       </label>
+      {opcoes.length > 0 && !mapaDeColunasCompleto(rascunho.githubColunaMap) && (
+        <p className="aviso">Escolha uma opção para cada coluna. Sem as quatro, o board não sincroniza.</p>
+      )}
       {opcoes.length > 0 && (
         <div className="linha">
-          {COLUNAS_MAPA.map((coluna) => (
+          {COLUNAS.map((coluna) => (
             <label key={coluna.id}>{coluna.nome}
               <select className="campo" value={rascunho.githubColunaMap[coluna.id] ?? ''} onChange={(e) => setRascunho({ ...rascunho, githubColunaMap: { ...rascunho.githubColunaMap, [coluna.id]: e.target.value } })}>
                 <option value="">—</option>
@@ -459,7 +460,7 @@ export function DetalheProjeto() {
             <div className="decisao" key={tarefa.id}>
               <span>{tarefa.titulo}</span>
               <small>
-                {tarefa.coluna === 'a_fazer' ? 'A fazer' : tarefa.coluna === 'fazendo' ? 'Fazendo' : tarefa.coluna === 'revisao' ? 'Revisão' : 'Feito'}
+                {nomeDaColuna(tarefa.coluna)}
                 {projeto.repositorio && <> · <a href={`https://github.com/${projeto.repositorio}/issues/${tarefa.githubIssueNumero}`} target="_blank" rel="noreferrer">#{tarefa.githubIssueNumero}</a></>}
               </small>
             </div>

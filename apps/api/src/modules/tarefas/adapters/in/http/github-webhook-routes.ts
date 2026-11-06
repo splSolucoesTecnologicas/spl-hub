@@ -1,8 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { Tarefa, type Coluna } from '../../../domain/tarefa.js';
-import type { TarefaRepository } from '../../../application/ports/tarefa-repository.js';
-import type { ProjetoRepository } from '../../../../operacao/application/ports.js';
+import type { EventoGithub } from '../../../application/sincronizacao-github.js';
+import type { CasosDeUsoTarefas } from '../../../application/use-cases.js';
+
+const ACOES_DE_ISSUE = ['opened', 'edited', 'closed', 'reopened'] as const;
+type AcaoDeIssue = (typeof ACOES_DE_ISSUE)[number];
+type Objeto = Record<string, unknown>;
+
+const objeto = (valor: unknown): Objeto | null => (valor !== null && typeof valor === 'object' ? (valor as Objeto) : null);
+const texto = (valor: unknown): string | null => (typeof valor === 'string' ? valor : null);
+const ehAcaoDeIssue = (valor: string | null): valor is AcaoDeIssue => ACOES_DE_ISSUE.includes(valor as AcaoDeIssue);
 
 export function verificarAssinatura(corpoBruto: Buffer, assinaturaHeader: string | undefined, secret: string): boolean {
   if (!assinaturaHeader?.startsWith('sha256=')) return false;
@@ -12,18 +19,32 @@ export function verificarAssinatura(corpoBruto: Buffer, assinaturaHeader: string
   return timingSafeEqual(esperada, recebida);
 }
 
-function colunaPelaOpcao(mapa: Record<string, string> | null, opcaoStatusId: string): string | null {
-  if (!mapa) return null;
-  const entrada = Object.entries(mapa).find(([, id]) => id === opcaoStatusId);
-  return entrada ? entrada[0] : null;
+/** Traduz o payload do GitHub. Eventos que o Hub não acompanha, ou malformados, viram null. */
+export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unknown): EventoGithub | null {
+  const raiz = objeto(payload);
+  if (!raiz) return null;
+  const acao = texto(raiz.action);
+  if (nomeDoEvento === 'issues') {
+    const issue = objeto(raiz.issue);
+    const repositorio = texto(objeto(raiz.repository)?.full_name);
+    if (!issue || !repositorio || !ehAcaoDeIssue(acao)) return null;
+    const titulo = texto(issue.title);
+    const estado = issue.state;
+    if (typeof issue.number !== 'number' || !titulo || (estado !== 'open' && estado !== 'closed')) return null;
+    return { tipo: 'issue', acao, repositorio, numero: issue.number, titulo, estado, corpo: texto(issue.body) };
+  }
+  if (nomeDoEvento === 'projects_v2_item' && acao === 'edited') {
+    const opcaoStatusId = texto(objeto(objeto(objeto(raiz.changes)?.field_value)?.to)?.id);
+    const itemNodeId = texto(objeto(raiz.projects_v2_item)?.node_id);
+    if (!opcaoStatusId || !itemNodeId) return null;
+    return { tipo: 'item_do_board', itemNodeId, opcaoStatusId };
+  }
+  return null;
 }
 
 interface DepsWebhook {
-  tarefas: TarefaRepository;
-  projetos: ProjetoRepository;
+  tarefas: CasosDeUsoTarefas;
   webhookSecret: string | undefined;
-  relogio: { agora: () => Date };
-  ids: { novo: () => string };
 }
 
 export function githubWebhookRoutes(deps: DepsWebhook) {
@@ -40,55 +61,17 @@ export function githubWebhookRoutes(deps: DepsWebhook) {
         if (!deps.webhookSecret || !verificarAssinatura(rawBody, assinatura, deps.webhookSecret)) {
           return reply.code(401).send({ erro: 'assinatura_invalida' });
         }
-        const evento = req.headers['x-github-event'] as string | undefined;
-        try {
-          if (evento === 'issues') await tratarEventoIssue(req.body as Record<string, unknown>, deps);
-          else if (evento === 'projects_v2_item') await tratarEventoItemProjeto(req.body as Record<string, unknown>, deps);
-        } catch (erro) {
-          console.error('Falha ao processar webhook do GitHub:', erro);
+        const evento = eventoDoPayload(req.headers['x-github-event'] as string | undefined, req.body);
+        if (evento) {
+          // O GitHub espera 200 rápido; a falha fica no log e a ressincronização manual cobre o que faltar.
+          try {
+            await deps.tarefas.aplicarEventoGithub(evento);
+          } catch (erro) {
+            console.error('Falha ao processar webhook do GitHub:', erro);
+          }
         }
         return reply.code(200).send({ ok: true });
       });
     });
   };
-}
-
-async function tratarEventoIssue(payload: Record<string, unknown>, deps: DepsWebhook) {
-  const acao = payload.action as string;
-  const issue = payload.issue as { number: number; title: string; state: 'open' | 'closed'; node_id: string } | undefined;
-  const repositorioFull = (payload.repository as { full_name: string } | undefined)?.full_name;
-  if (!issue || !repositorioFull || !['opened', 'edited', 'closed', 'reopened'].includes(acao)) return;
-  const projetos = await deps.projetos.listarTodos();
-  const projeto = projetos.find((item) => item.repositorio === repositorioFull);
-  if (!projeto) return;
-  const todas = await deps.tarefas.listarTodas();
-  const existente = todas.find((tarefa) => tarefa.projetoId === projeto.id && tarefa.githubIssueNumero === issue.number);
-  const coluna: Coluna = issue.state === 'closed' ? 'feito' : existente?.coluna === 'feito' ? 'a_fazer' : (existente?.coluna ?? 'a_fazer');
-  if (existente) {
-    existente.atualizar({ titulo: issue.title, coluna }, deps.relogio.agora());
-    existente.vincularGithub(issue.number, issue.node_id, existente.githubItemNodeId);
-    await deps.tarefas.salvar(existente);
-    return;
-  }
-  if (acao !== 'opened') return;
-  const nova = Tarefa.criar({ id: deps.ids.novo(), titulo: issue.title, agora: deps.relogio.agora(), coluna, projetoId: projeto.id, referencia: `${repositorioFull}#${issue.number}` });
-  nova.vincularGithub(issue.number, issue.node_id, null);
-  await deps.tarefas.salvar(nova);
-}
-
-async function tratarEventoItemProjeto(payload: Record<string, unknown>, deps: DepsWebhook) {
-  const acao = payload.action as string;
-  if (acao !== 'edited') return;
-  const changes = payload.changes as { field_value?: { field_node_id?: string; to?: { id?: string } } } | undefined;
-  const opcaoStatusId = changes?.field_value?.to?.id;
-  const itemNodeId = (payload.projects_v2_item as { node_id?: string } | undefined)?.node_id;
-  if (!opcaoStatusId || !itemNodeId) return;
-  const todas = await deps.tarefas.listarTodas();
-  const tarefa = todas.find((item) => item.githubItemNodeId === itemNodeId);
-  if (!tarefa || !tarefa.projetoId) return;
-  const projeto = await deps.projetos.buscarPorId(tarefa.projetoId);
-  const coluna = colunaPelaOpcao(projeto?.githubColunaMap ?? null, opcaoStatusId);
-  if (!coluna) return;
-  tarefa.atualizar({ coluna: coluna as Coluna }, deps.relogio.agora());
-  await deps.tarefas.salvar(tarefa);
 }

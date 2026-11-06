@@ -19,6 +19,11 @@ export class InMemoryProjetoRepository implements ProjetoRepository {
   private dados = new Map<string, ReturnType<Projeto['toJSON']>>();
   async salvar(projeto: Projeto) { this.dados.set(projeto.id, projeto.toJSON()); }
   async buscarPorId(id: string) { const props = this.dados.get(id); return props ? Projeto.restaurar(props) : null; }
+  async buscarPorRepositorio(repositorio: string) {
+    const alvo = repositorio.toLowerCase();
+    const props = [...this.dados.values()].find((item) => item.repositorio?.toLowerCase() === alvo);
+    return props ? Projeto.restaurar(props) : null;
+  }
   async remover(id: string) { this.dados.delete(id); }
   async listar({ limite, cursor }: { limite: number; cursor?: string }) {
     const pagina = paginar([...this.dados.values()], limite, cursor);

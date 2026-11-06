@@ -6,6 +6,14 @@ export class InMemoryTarefaRepository implements TarefaRepository {
   private dados = new Map<string, ReturnType<Tarefa['toJSON']>>();
   async salvar(tarefa: Tarefa) { this.dados.set(tarefa.id, tarefa.toJSON()); }
   async buscarPorId(id: string) { const props = this.dados.get(id); return props ? Tarefa.restaurar(props) : null; }
+  async buscarPorIssue(projetoId: string, issueNumero: number) {
+    const props = [...this.dados.values()].find((item) => item.projetoId === projetoId && item.githubIssueNumero === issueNumero);
+    return props ? Tarefa.restaurar(props) : null;
+  }
+  async buscarPorItemDoBoard(itemNodeId: string) {
+    const props = [...this.dados.values()].find((item) => item.githubItemNodeId === itemNodeId);
+    return props ? Tarefa.restaurar(props) : null;
+  }
   async remover(id: string) { this.dados.delete(id); }
   async listarTodas() { return [...this.dados.values()].map((item) => Tarefa.restaurar(item)); }
   async listar({ limite, cursor, coluna, responsavelId, produto }: { limite: number; cursor?: string; coluna?: Coluna; responsavelId?: string; produto?: Produto }) {

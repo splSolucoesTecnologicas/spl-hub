@@ -1,17 +1,14 @@
-import type { GitHubProjetos } from '../../application/ports/tarefa-repository.js';
+import type { CatalogoGithub } from '../../modules/operacao/application/ports.js';
+import type { GitHubProjetos } from '../../modules/tarefas/application/ports/github-projetos.js';
 import { GithubAuth, GithubClienteHttp, type ConfigGithubApp } from './github-cliente.js';
 
-export class AppGitHubProjetos implements GitHubProjetos {
+interface IssueRest { number: number; node_id: string }
+
+export class AppGitHubProjetos implements GitHubProjetos, CatalogoGithub {
   readonly modo = 'app' as const;
   private readonly cliente: GithubClienteHttp;
-  constructor(private readonly cfg: ConfigGithubApp) {
+  constructor(cfg: ConfigGithubApp) {
     this.cliente = new GithubClienteHttp(new GithubAuth(cfg));
-  }
-
-  async sincronizar(tarefas: { id: string; titulo: string; coluna: string; referencia: string | null }[]) {
-    // Sincronização em lote fica restrita a tarefas já ligadas a um Projeto com repo configurado;
-    // esse caminho genérico (sem saber o repo de cada tarefa) não cria issue nova — só reporta.
-    return { atualizacoes: [], detalhes: `Adapter app: use a sincronização por Projeto (criarOuAtualizarIssue) — ${tarefas.length} tarefas não vinculadas a um repo não são tocadas aqui.` };
   }
 
   async listarRepositorios() {
@@ -31,39 +28,37 @@ export class AppGitHubProjetos implements GitHubProjetos {
     return dados.repository.projectV2.field.options.map((item) => ({ id: item.id, nome: item.name }));
   }
 
-  async criarOuAtualizarIssue(input: { owner: string; repo: string; issueNumero: number | null; titulo: string; estado: 'open' | 'closed' }) {
-    if (input.issueNumero) {
-      const issue = await this.cliente.rest<{ number: number; node_id: string }>(`/repos/${input.owner}/${input.repo}/issues/${input.issueNumero}`, {
-        method: 'PATCH', body: JSON.stringify({ title: input.titulo, state: input.estado }),
-      });
-      return { issueNumero: issue.number, nodeId: issue.node_id };
-    }
-    const issue = await this.cliente.rest<{ number: number; node_id: string }>(`/repos/${input.owner}/${input.repo}/issues`, {
-      method: 'POST', body: JSON.stringify({ title: input.titulo }),
+  async criarIssue(input: { owner: string; repo: string; titulo: string; corpo: string }) {
+    const issue = await this.cliente.rest<IssueRest>(`/repos/${input.owner}/${input.repo}/issues`, {
+      method: 'POST', body: JSON.stringify({ title: input.titulo, body: input.corpo }),
+    });
+    return { issueNumero: issue.number, nodeId: issue.node_id };
+  }
+
+  async atualizarIssue(input: { owner: string; repo: string; issueNumero: number; titulo: string; estado: 'open' | 'closed' }) {
+    const issue = await this.cliente.rest<IssueRest>(`/repos/${input.owner}/${input.repo}/issues/${input.issueNumero}`, {
+      method: 'PATCH', body: JSON.stringify({ title: input.titulo, state: input.estado }),
     });
     return { issueNumero: issue.number, nodeId: issue.node_id };
   }
 
   async definirStatusNoProjeto(input: { owner: string; repo: string; numeroProjeto: number; issueNodeId: string; itemNodeId: string | null; opcaoStatusId: string }) {
-    let itemNodeId = input.itemNodeId;
-    if (!itemNodeId) {
-      const projeto = await this.cliente.graphql<{ repository: { projectV2: { id: string } } }>(
-        `query($owner:String!,$repo:String!,$numero:Int!){ repository(owner:$owner,name:$repo){ projectV2(number:$numero){ id } } }`,
-        { owner: input.owner, repo: input.repo, numero: input.numeroProjeto },
-      );
-      const adicionado = await this.cliente.graphql<{ addProjectV2ItemById: { item: { id: string } } }>(
-        `mutation($projectId:ID!,$contentId:ID!){ addProjectV2ItemById(input:{projectId:$projectId,contentId:$contentId}){ item { id } } }`,
-        { projectId: projeto.repository.projectV2.id, contentId: input.issueNodeId },
-      );
-      itemNodeId = adicionado.addProjectV2ItemById.item.id;
-    }
-    const projetoId = await this.cliente.graphql<{ repository: { projectV2: { id: string; field: { id: string } } } }>(
+    const projeto = await this.cliente.graphql<{ repository: { projectV2: { id: string; field: { id: string } } } }>(
       `query($owner:String!,$repo:String!,$numero:Int!){ repository(owner:$owner,name:$repo){ projectV2(number:$numero){ id field(name:"Status"){ ... on ProjectV2SingleSelectField { id } } } } }`,
       { owner: input.owner, repo: input.repo, numero: input.numeroProjeto },
     );
+    const projetoId = projeto.repository.projectV2.id;
+    let itemNodeId = input.itemNodeId;
+    if (!itemNodeId) {
+      const adicionado = await this.cliente.graphql<{ addProjectV2ItemById: { item: { id: string } } }>(
+        `mutation($projectId:ID!,$contentId:ID!){ addProjectV2ItemById(input:{projectId:$projectId,contentId:$contentId}){ item { id } } }`,
+        { projectId: projetoId, contentId: input.issueNodeId },
+      );
+      itemNodeId = adicionado.addProjectV2ItemById.item.id;
+    }
     await this.cliente.graphql(
       `mutation($projectId:ID!,$itemId:ID!,$fieldId:ID!,$optionId:String!){ updateProjectV2ItemFieldValue(input:{projectId:$projectId,itemId:$itemId,fieldId:$fieldId,value:{singleSelectOptionId:$optionId}}){ clientMutationId } }`,
-      { projectId: projetoId.repository.projectV2.id, itemId: itemNodeId, fieldId: projetoId.repository.projectV2.field.id, optionId: input.opcaoStatusId },
+      { projectId: projetoId, itemId: itemNodeId, fieldId: projeto.repository.projectV2.field.id, optionId: input.opcaoStatusId },
     );
     return { itemNodeId };
   }
@@ -76,9 +71,8 @@ export class AppGitHubProjetos implements GitHubProjetos {
   }
 
   async status() {
-    // "/app" só aceita o JWT do App, não o token de instalação — então usamos
-    // "/installation/repositories" (aceita token de instalação) pra confirmar a conexão
-    // e extrair a organização do primeiro repositório acessível.
+    // "/app" só aceita o JWT do App, não o token de instalação; "/installation/repositories"
+    // aceita o token de instalação, confirma a conexão e revela a organização.
     try {
       const dados = await this.cliente.rest<{ repositories: { owner: { login: string } }[] }>('/installation/repositories?per_page=1');
       return { conectado: true, organizacao: dados.repositories[0]?.owner.login ?? null };

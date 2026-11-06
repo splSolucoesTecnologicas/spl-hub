@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
-import { gerarJwtApp } from '../src/modules/tarefas/adapters/out/github-cliente.js';
+import { gerarJwtApp } from '../src/integrations/github/github-cliente.js';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const pem = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();

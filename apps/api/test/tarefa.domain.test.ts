@@ -22,8 +22,9 @@ describe('Tarefa (domínio)', () => {
 
   it('vincula a tarefa a uma issue do GitHub', () => {
     const tarefa = Tarefa.criar({ id: '1', titulo: 'Testar vinculo', agora });
-    tarefa.vincularGithub(42, 'IT_issue', 'PVTI_item');
+    tarefa.vincularGithub({ issueNumero: 42, referencia: 'spl/hub#42', itemNodeId: 'PVTI_item' });
     expect(tarefa.githubIssueNumero).toBe(42);
+    expect(tarefa.referencia).toBe('spl/hub#42');
     expect(tarefa.githubItemNodeId).toBe('PVTI_item');
   });
 

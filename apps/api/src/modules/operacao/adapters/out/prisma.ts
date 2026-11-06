@@ -33,6 +33,10 @@ export class PrismaProjetoRepository implements ProjetoRepository {
     await this.db.projeto.upsert({ where: { id }, create: { id, ...dados }, update: dados });
   }
   async buscarPorId(id: string) { const row = await this.db.projeto.findUnique({ where: { id } }); return row ? Projeto.restaurar(row as unknown as ProjetoProps) : null; }
+  async buscarPorRepositorio(repositorio: string) {
+    const row = await this.db.projeto.findFirst({ where: { repositorio: { equals: repositorio, mode: 'insensitive' } } });
+    return row ? Projeto.restaurar(row as unknown as ProjetoProps) : null;
+  }
   async remover(id: string) { await this.db.projeto.deleteMany({ where: { id } }); }
   async listar({ limite, cursor }: { limite: number; cursor?: string }) {
     const rows = await this.db.projeto.findMany({ take: limite + 1, orderBy: { id: 'asc' }, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });

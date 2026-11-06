@@ -168,7 +168,7 @@ export const PaginaTarefasSchema = pagina(TarefaSchema).openapi('PaginaTarefas')
 export const PaginaUsuariosSchema = pagina(UsuarioSchema).openapi('PaginaUsuarios');
 
 export const SincronizacaoSchema = z.object({
-  modo: z.enum(['fake', 'http']),
+  modo: z.enum(['fake', 'app']),
   sincronizadas: z.number(),
   detalhes: z.string(),
   em: z.string().datetime(),

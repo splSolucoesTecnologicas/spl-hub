@@ -1,8 +1,9 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
-import type { GitHubProjetos, TarefaRepository } from './modules/tarefas/application/ports/tarefa-repository.js';
+import type { TarefaRepository } from './modules/tarefas/application/ports/tarefa-repository.js';
+import type { GitHubProjetos } from './modules/tarefas/application/ports/github-projetos.js';
 import type { AvisoPaginas, NoticiaRepository } from './modules/blog/application/use-cases.js';
-import type { ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './modules/operacao/application/ports.js';
+import type { CatalogoGithub, ClienteRepository, DecisaoRepository, ObjetivoRepository, ProjetoRepository } from './modules/operacao/application/ports.js';
 import type { AuditoriaRepository, DesafioRepository, Senhas, SessaoRepository, SolicitacaoRepository, Tokens, TotpPort, UsuarioRepository } from './modules/acesso/application/ports.js';
 import type { Relogio, GeradorId } from './shared/application/tempo.js';
 import type { ThumdraAdminClient } from './integrations/thumdra/thumdra-admin-client.js';
@@ -31,7 +32,7 @@ export interface Dependencias {
   decisoes: DecisaoRepository;
   objetivos: ObjetivoRepository;
   avisoPaginas: AvisoPaginas;
-  github: GitHubProjetos;
+  github: GitHubProjetos & CatalogoGithub;
   thumdra: ThumdraAdminClient;
   senhas: Senhas;
   totp: TotpPort;
@@ -53,7 +54,7 @@ export function buildApp(deps: Dependencias) {
   const operacao = criarCasosDeUsoOperacao(deps);
   app.register(acessoRoutes(acesso));
   app.register(tarefasRoutes(tarefas, acesso, () => deps.relogio.agora()));
-  app.register(githubWebhookRoutes({ tarefas: deps.tarefas, projetos: deps.projetos, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET, relogio: deps.relogio, ids: deps.ids }));
+  app.register(githubWebhookRoutes({ tarefas, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET }));
   app.register(blogRoutes(blog, acesso));
   app.register(operacaoRoutes(operacao, acesso));
   app.register(thumdraRoutes(deps.thumdra, acesso));

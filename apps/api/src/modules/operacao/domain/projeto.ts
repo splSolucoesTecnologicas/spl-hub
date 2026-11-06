@@ -1,4 +1,5 @@
 import { ErroDeDominio } from '../../../shared/domain/erro-de-dominio.js';
+import { VinculoGithub } from './vinculo-github.js';
 
 export const TIPOS_PROJETO = ['produto', 'sob_medida', 'interno'] as const;
 export type TipoProjeto = (typeof TIPOS_PROJETO)[number];
@@ -13,9 +14,7 @@ export interface ResponsavelProjeto { area: AreaResponsavel; usuarioId: string }
 export interface MarcoProjeto { id: string; titulo: string; status: StatusMarco; detalhe: string; ordem: number }
 
 const COR = /^#[0-9a-fA-F]{6}$/;
-const REPO = /^[\w.-]+\/[\w.-]+$/;
 const URL = /^https?:\/\/\S+$/;
-const COLUNAS_HUB = ['a_fazer', 'fazendo', 'revisao', 'feito'] as const;
 
 export interface ProjetoProps {
   id: string;
@@ -85,15 +84,9 @@ export class Projeto {
     const repositorio = limpar(input.repositorio);
     const quadroUrl = limpar(input.quadroUrl);
     const adminUrl = limpar(input.adminUrl);
-    if (repositorio && !REPO.test(repositorio)) throw new ErroDeDominio('repositorio_invalido', 'Repositório no formato dono/nome');
+    VinculoGithub.validar({ repositorio, githubProjectNumero: input.githubProjectNumero ?? null, githubColunaMap: input.githubColunaMap ?? null });
     if (quadroUrl && !URL.test(quadroUrl)) throw new ErroDeDominio('url_invalida', 'Link do quadro precisa ser uma URL http(s)');
     if (adminUrl && !URL.test(adminUrl)) throw new ErroDeDominio('url_invalida', 'URL do admin precisa ser http(s)');
-    if (input.githubColunaMap != null) {
-      const completo = COLUNAS_HUB.every((coluna) => typeof input.githubColunaMap![coluna] === 'string' && input.githubColunaMap![coluna].length > 0);
-      if (!completo || Object.keys(input.githubColunaMap).length !== COLUNAS_HUB.length) {
-        throw new ErroDeDominio('mapeamento_incompleto', 'Mapeamento de colunas precisa cobrir a_fazer, fazendo, revisao e feito');
-      }
-    }
     const responsaveis = (input.responsaveis ?? []).map((item) => ({ area: item.area, usuarioId: item.usuarioId }));
     for (const item of responsaveis) {
       if (!AREAS_RESPONSAVEL.includes(item.area)) throw new ErroDeDominio('area_invalida', 'Área do responsável inválida');
@@ -132,6 +125,7 @@ export class Projeto {
   get adminUrl() { return this.props.adminUrl; }
   get githubProjectNumero() { return this.props.githubProjectNumero; }
   get githubColunaMap() { return this.props.githubColunaMap; }
+  get vinculoGithub(): VinculoGithub | null { return VinculoGithub.de(this.props); }
   get progresso() { return this.props.progresso; }
   get progressoRotulo() { return this.props.progressoRotulo; }
   get responsaveis() { return this.props.responsaveis; }
