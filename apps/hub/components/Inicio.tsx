@@ -4,13 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { select } from 'd3-selection';
 import { zoom, zoomIdentity, zoomTransform, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
-import type { ClienteDTO, DecisaoDTO, LayoutInicioDTO, NoticiaPublicaDTO, ObjetivoDTO, ProjetoDTO, UsuarioDTO } from '@spl/contracts';
+import type { ClienteDTO, LayoutInicioDTO, UsuarioDTO } from '@spl/contracts';
 import { geocodificar } from '@spl/contracts';
 import { ESTADOS } from '@/lib/brasil';
 import { projetar } from '@/lib/geo';
-import { api, type Pagina, type TarefaDTO } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
+import { dados, primeiroNome } from '@/lib/dados';
 import { pode } from '@/lib/pode';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
+
+/** No Início cada card se vira sozinho: a fonte que falha some do painel em vez de derrubar o radar inteiro. */
+const ouVazio = <T,>(promessa: Promise<T[]>): Promise<T[]> => promessa.catch(() => []);
 
 function quando(iso: string | null, atrasada: boolean) {
   if (!iso) return '';
@@ -122,13 +127,21 @@ export function Inicio() {
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const animacaoRef = useRef(0);
   const [vista, setVista] = useState<Vista>({ k: 1, x: 0, y: 0 });
-  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
-  const [clientes, setClientes] = useState<ClienteDTO[]>([]);
-  const [projetos, setProjetos] = useState<ProjetoDTO[]>([]);
-  const [tarefas, setTarefas] = useState<TarefaDTO[]>([]);
-  const [decisoes, setDecisoes] = useState<DecisaoDTO[]>([]);
-  const [objetivos, setObjetivos] = useState<ObjetivoDTO[]>([]);
-  const [noticias, setNoticias] = useState<NoticiaPublicaDTO[]>([]);
+  const painel = useCarregamento(async () => {
+    const [pessoas, tarefas, noticias, clientes, projetos, decisoes, objetivos] = await Promise.all([
+      ouVazio(dados.pessoas.listar()),
+      ouVazio(dados.tarefas.listar({ filtro: 'minhas' })),
+      ouVazio(dados.blog.publicadas(3)),
+      pode(usuario, 'clientes', 'so_frentes') ? ouVazio(dados.clientes.listar()) : [],
+      pode(usuario, 'projetos', 'so_frentes') ? ouVazio(dados.projetos.listar()) : [],
+      pode(usuario, 'socios', 'ler') ? ouVazio(dados.decisoes.listar()) : [],
+      pode(usuario, 'socios', 'ler') ? ouVazio(dados.objetivos.listar()) : [],
+    ]);
+    return { pessoas: pessoas.filter((pessoa) => pessoa.ativo), tarefas, noticias, clientes, projetos, decisoes, objetivos };
+  }, [usuario.id]);
+  const { pessoas = [], tarefas = [], noticias = [], clientes = [], projetos = [], decisoes = [], objetivos = [] } = painel.dados ?? {};
+  const acaoDecisao = useAcao();
+  const acaoObjetivo = useAcao();
   const [filtro, setFiltro] = useState('todos');
   const [aberto, setAberto] = useState<string | null>(null);
   const [tituloDecisao, setTituloDecisao] = useState('');
@@ -136,24 +149,6 @@ export function Inicio() {
   const [editandoLayout, setEditandoLayout] = useState(false);
   const [layout, setLayout] = useState<LayoutInicioDTO>(() => usuario.layoutInicio ?? layoutPadrao());
   const primeiraRenderLayout = useRef(true);
-
-  async function carregar() {
-    const [time, quadro, blog] = await Promise.all([
-      api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100').catch(() => ({ data: [], nextCursor: null })),
-      api<Pagina<TarefaDTO>>('/tarefas?filtro=minhas&limite=10').catch(() => ({ data: [], nextCursor: null })),
-      api<Pagina<NoticiaPublicaDTO>>('/blog?limite=3').catch(() => ({ data: [], nextCursor: null })),
-    ]);
-    setPessoas(time.data.filter((pessoa) => pessoa.ativo));
-    setTarefas(quadro.data);
-    setNoticias(blog.data);
-    if (pode(usuario, 'clientes', 'so_frentes')) setClientes((await api<Pagina<ClienteDTO>>('/clientes?limite=100').catch(() => ({ data: [] }))).data);
-    if (pode(usuario, 'projetos', 'so_frentes')) setProjetos((await api<Pagina<ProjetoDTO>>('/projetos?limite=100').catch(() => ({ data: [] }))).data);
-    if (pode(usuario, 'socios', 'ler')) {
-      setDecisoes((await api<{ data: DecisaoDTO[] }>('/decisoes').catch(() => ({ data: [] }))).data);
-      setObjetivos((await api<{ data: ObjetivoDTO[] }>('/objetivos').catch(() => ({ data: [] }))).data);
-    }
-  }
-  useEffect(() => { void carregar(); }, [usuario.id]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -176,7 +171,7 @@ export function Inicio() {
   useEffect(() => {
     if (primeiraRenderLayout.current) { primeiraRenderLayout.current = false; return; }
     const tempo = setTimeout(() => {
-      void api(`/acesso/usuarios/${usuario.id}`, { method: 'PATCH', body: JSON.stringify({ layoutInicio: layout }) }).then(recarregar).catch(() => undefined);
+      void dados.pessoas.atualizar(usuario.id, { layoutInicio: layout }).then(recarregar).catch(() => undefined);
     }, 600);
     return () => clearTimeout(tempo);
   }, [layout]);
@@ -224,7 +219,7 @@ export function Inicio() {
     if (mostraEquipe) {
       for (const pessoa of pessoas) {
         const ponto = pontoPessoa(pessoa);
-        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: '#00ff66', nome: pessoa.nome.split(' ')[0], tipo: 'equipe' });
+        if (ponto) lista.push({ id: `p-${pessoa.id}`, x: ponto.x, y: ponto.y, dx: 0, dy: 0, cor: '#00ff66', nome: primeiroNome(pessoa.nome), tipo: 'equipe' });
       }
     }
     for (const item of clientes.filter(mostraCliente)) {
@@ -269,17 +264,17 @@ export function Inicio() {
   }
 
   async function criarDecisao() {
-    if (tituloDecisao.trim().length < 3) return;
-    await api('/decisoes', { method: 'POST', body: JSON.stringify({ titulo: tituloDecisao }) });
+    if (!tituloDecisao.trim()) return;
+    if (!await acaoDecisao.executar(() => dados.decisoes.criar({ titulo: tituloDecisao }), 'Não foi possível registrar a decisão')) return;
     setTituloDecisao('');
-    await carregar();
+    await painel.recarregar();
   }
   async function criarObjetivo() {
-    if (tituloObjetivo.trim().length < 3) return;
+    if (!tituloObjetivo.trim()) return;
     const periodo = `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`;
-    await api('/objetivos', { method: 'POST', body: JSON.stringify({ titulo: tituloObjetivo, progresso: 0, periodo }) });
+    if (!await acaoObjetivo.executar(() => dados.objetivos.criar({ titulo: tituloObjetivo, progresso: 0, periodo }), 'Não foi possível criar o objetivo')) return;
     setTituloObjetivo('');
-    await carregar();
+    await painel.recarregar();
   }
 
   const cardProps = (id: string) => ({
@@ -301,7 +296,7 @@ export function Inicio() {
         {pessoas.length === 0 && <p className="aviso">Ninguém com acesso ainda.</p>}
         {pessoas.map((pessoa) => (
           <div className="pessoa" key={pessoa.id}>
-            <span><i style={{ color: '#00ff66' }}>●</i> {pessoa.nome.split(' ')[0]}</span>
+            <span><i style={{ color: '#00ff66' }}>●</i> {primeiroNome(pessoa.nome)}</span>
             <small>{pessoa.cidade ? `${pessoa.cidade} · ${pessoa.uf}` : 'cidade a definir'}</small>
           </div>
         ))}
@@ -362,6 +357,7 @@ export function Inicio() {
             <input className="campo" placeholder="Nova decisão" value={tituloDecisao} onChange={(e) => setTituloDecisao(e.target.value)} />
           </form>
         )}
+        {acaoDecisao.erro && <p className="erro">{acaoDecisao.erro}</p>}
       </>
     ),
     objetivos: (
@@ -378,6 +374,7 @@ export function Inicio() {
             <input className="campo" placeholder="Novo objetivo" value={tituloObjetivo} onChange={(e) => setTituloObjetivo(e.target.value)} />
           </form>
         )}
+        {acaoObjetivo.erro && <p className="erro">{acaoObjetivo.erro}</p>}
       </>
     ),
   };

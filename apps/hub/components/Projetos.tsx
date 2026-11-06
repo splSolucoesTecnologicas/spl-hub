@@ -1,14 +1,18 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import type { ClienteDTO, ProjetoDTO, UsuarioDTO } from '@spl/contracts';
-import { api, type Pagina, type TarefaDTO } from '@/lib/api';
+import type { ClienteDTO, ProjetoDTO, TarefaDTO, UsuarioDTO } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
 import { COLUNAS, mapaDeColunasCompleto, nomeDaColuna } from '@/lib/colunas';
+import { dados, mensagemDeErro, nomeDaPessoa } from '@/lib/dados';
 import { pode } from '@/lib/pode';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
 import { Quadro } from './Quadro';
+
+type AreaResponsavel = ProjetoDTO['responsaveis'][number]['area'];
 
 const TIPOS = [
   ['produto', 'Produto'],
@@ -50,7 +54,7 @@ type Rascunho = {
   githubColunaMap: Record<string, string>;
   progresso: string;
   progressoRotulo: string;
-  responsaveis: Record<string, string[]>;
+  responsaveis: Partial<Record<AreaResponsavel, string[]>>;
   clienteIds: string[];
 };
 
@@ -61,7 +65,7 @@ const base = (): Rascunho => ({
 });
 
 function deProjeto(projeto: ProjetoDTO): Rascunho {
-  const responsaveis: Record<string, string[]> = {};
+  const responsaveis: Rascunho['responsaveis'] = {};
   for (const item of projeto.responsaveis) {
     responsaveis[item.area] = [...(responsaveis[item.area] ?? []), item.usuarioId];
   }
@@ -74,7 +78,8 @@ function deProjeto(projeto: ProjetoDTO): Rascunho {
 }
 
 function corpoDe(rascunho: Rascunho) {
-  const responsaveis = Object.entries(rascunho.responsaveis).flatMap(([area, ids]) => ids.filter(Boolean).map((usuarioId) => ({ area, usuarioId })));
+  const responsaveis = (Object.entries(rascunho.responsaveis) as [AreaResponsavel, string[]][])
+    .flatMap(([area, ids]) => ids.filter(Boolean).map((usuarioId) => ({ area, usuarioId })));
   const githubProjectNumero = rascunho.githubProjectNumero ? Number(rascunho.githubProjectNumero) : null;
   return {
     nome: rascunho.nome, tipo: rascunho.tipo, status: rascunho.status, descricao: rascunho.descricao, cor: rascunho.cor,
@@ -87,40 +92,40 @@ function corpoDe(rascunho: Rascunho) {
 
 export function ListaProjetos() {
   const { usuario } = useSessao();
-  const [projetos, setProjetos] = useState<ProjetoDTO[]>([]);
-  const [clientes, setClientes] = useState<ClienteDTO[]>([]);
-  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
+  const lista = useCarregamento(async () => {
+    const [projetos, pessoas, clientes] = await Promise.all([
+      dados.projetos.listar(),
+      dados.pessoas.listar(),
+      pode(usuario, 'clientes', 'so_frentes') ? dados.clientes.listar() : Promise.resolve([]),
+    ]);
+    return { projetos, pessoas, clientes };
+  }, []);
+  const acao = useAcao();
   const [filtro, setFiltro] = useState<'todos' | ProjetoDTO['tipo']>('todos');
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
-  const [erro, setErro] = useState('');
   const edita = pode(usuario, 'projetos', 'editar');
-
-  async function carregar() {
-    const [lista, time] = await Promise.all([
-      api<Pagina<ProjetoDTO>>('/projetos?limite=100'),
-      api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100'),
-    ]);
-    setProjetos(lista.data);
-    setPessoas(time.data);
-    if (pode(usuario, 'clientes', 'so_frentes')) setClientes((await api<Pagina<ClienteDTO>>('/clientes?limite=100')).data);
-  }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, []);
+  const { projetos = [], pessoas = [], clientes = [] } = lista.dados ?? {};
+  const erro = rascunho ? acao.erro : lista.erro || acao.erro;
 
   const visiveis = projetos.filter((item) => filtro === 'todos' || item.tipo === filtro);
-  const nomeDe = (id: string) => pessoas.find((pessoa) => pessoa.id === id)?.nome.split(' ')[0] ?? '—';
+  const nomeDe = (id: string) => nomeDaPessoa(pessoas, id, 'curto');
+
+  function abrir(novo: Rascunho | null) {
+    acao.limparErro();
+    setRascunho(novo);
+  }
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
     if (!rascunho) return;
-    setErro('');
-    try {
-      if (rascunho.id) await api(`/projetos/${rascunho.id}`, { method: 'PATCH', body: JSON.stringify(corpoDe(rascunho)) });
-      else await api('/projetos', { method: 'POST', body: JSON.stringify(corpoDe(rascunho)) });
-      setRascunho(null);
-      await carregar();
-    } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível salvar');
-    }
+    const corpo = corpoDe(rascunho);
+    const salvo = await acao.executar(
+      () => (rascunho.id ? dados.projetos.atualizar(rascunho.id, corpo) : dados.projetos.criar(corpo)),
+      'Não foi possível salvar o projeto',
+    );
+    if (!salvo) return;
+    setRascunho(null);
+    await lista.recarregar();
   }
 
   return (
@@ -130,7 +135,7 @@ export function ListaProjetos() {
           <p className="kicker">Produtos e projetos sob medida</p>
           <h1>Projetos</h1>
         </div>
-        {edita && <button className="btn" type="button" onClick={() => { setErro(''); setRascunho(base()); }}>+ Novo projeto</button>}
+        {edita && <button className="btn" type="button" onClick={() => abrir(base())}>+ Novo projeto</button>}
       </div>
       <div className="abas" style={{ marginBottom: 16 }}>
         {([['todos', 'Todos'], ...TIPOS] as const).map(([id, nome]) => (
@@ -142,7 +147,7 @@ export function ListaProjetos() {
         <div className="vazio">
           <h2>Nenhum projeto ainda</h2>
           <p className="aviso">Thumdra, Corujuris e os trabalhos sob medida entram por aqui. Em produção a lista começa vazia.</p>
-          {edita && <button className="btn" type="button" onClick={() => setRascunho(base())}>Novo projeto</button>}
+          {edita && <button className="btn" type="button" onClick={() => abrir(base())}>Novo projeto</button>}
         </div>
       ) : (
         <div className="cards-projetos">
@@ -169,18 +174,20 @@ export function ListaProjetos() {
         </div>
       )}
       {rascunho && (
-        <FormularioProjeto rascunho={rascunho} setRascunho={setRascunho} pessoas={pessoas} clientes={clientes} erro={erro} onSalvar={salvar} onFechar={() => setRascunho(null)} />
+        <FormularioProjeto rascunho={rascunho} setRascunho={setRascunho} pessoas={pessoas} clientes={clientes} erro={erro} onSalvar={salvar} onFechar={() => abrir(null)} />
       )}
     </section>
   );
 }
 
-function RepositorioGithubInput({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
-  const [repos, setRepos] = useState<{ owner: string; nome: string }[]>([]);
+interface CampoDoRascunhoProps {
+  rascunho: Rascunho;
+  setRascunho: (valor: Rascunho) => void;
+}
 
-  useEffect(() => {
-    void api<{ owner: string; nome: string }[]>('/projetos/github/repositorios').then(setRepos).catch(() => setRepos([]));
-  }, []);
+function RepositorioGithubInput({ rascunho, setRascunho }: CampoDoRascunhoProps) {
+  const carregamento = useCarregamento(() => dados.github.repositorios(), []);
+  const repos = carregamento.dados ?? [];
 
   return (
     <label>Repositório GitHub
@@ -194,30 +201,29 @@ function RepositorioGithubInput({ rascunho, setRascunho }: { rascunho: Rascunho;
       <datalist id="repos-github-lista">
         {repos.map((repo) => <option key={`${repo.owner}/${repo.nome}`} value={`${repo.owner}/${repo.nome}`} />)}
       </datalist>
+      {carregamento.erro && <small className="aviso">Sem a lista do GitHub: {carregamento.erro}</small>}
     </label>
   );
 }
 
-function VinculoGithub({ rascunho, setRascunho }: { rascunho: Rascunho; setRascunho: (valor: Rascunho) => void }) {
-  const [boards, setBoards] = useState<{ numero: number; titulo: string }[]>([]);
-  const [opcoes, setOpcoes] = useState<{ id: string; nome: string }[]>([]);
-  const [owner, repo] = rascunho.repositorio.split('/');
-
-  useEffect(() => {
-    void api<{ numero: number; titulo: string }[]>(`/projetos/github/repositorios/${owner}/${repo}/boards`).then(setBoards).catch(() => setBoards([]));
-  }, [owner, repo]);
-
-  useEffect(() => {
-    if (!rascunho.githubProjectNumero) { setOpcoes([]); return; }
-    void api<{ id: string; nome: string }[]>(`/projetos/github/repositorios/${owner}/${repo}/boards/${rascunho.githubProjectNumero}/opcoes-status`).then(setOpcoes).catch(() => setOpcoes([]));
-  }, [owner, repo, rascunho.githubProjectNumero]);
+function VinculoGithub({ rascunho, setRascunho }: CampoDoRascunhoProps) {
+  const [owner = '', repo = ''] = rascunho.repositorio.split('/');
+  const numeroBoard = rascunho.githubProjectNumero;
+  const boards = useCarregamento(() => dados.github.boards(owner, repo), [owner, repo]);
+  const opcoesDoBoard = useCarregamento(
+    () => (numeroBoard ? dados.github.opcoesDeStatus(owner, repo, Number(numeroBoard)) : Promise.resolve([])),
+    [owner, repo, numeroBoard],
+  );
+  const opcoes = opcoesDoBoard.dados ?? [];
+  const erro = boards.erro || opcoesDoBoard.erro;
 
   return (
     <>
+      {erro && <p className="aviso">Sem os boards do GitHub: {erro}</p>}
       <label>Board do GitHub Projects
         <select className="campo" value={rascunho.githubProjectNumero} onChange={(e) => setRascunho({ ...rascunho, githubProjectNumero: e.target.value })}>
           <option value="">Sem board vinculado</option>
-          {boards.map((board) => <option key={board.numero} value={board.numero}>{board.titulo}</option>)}
+          {(boards.dados ?? []).map((board) => <option key={board.numero} value={board.numero}>{board.titulo}</option>)}
         </select>
       </label>
       {opcoes.length > 0 && !mapaDeColunasCompleto(rascunho.githubColunaMap) && (
@@ -305,60 +311,57 @@ export function DetalheProjeto() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { usuario } = useSessao();
-  const [projeto, setProjeto] = useState<ProjetoDTO | null>(null);
-  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
-  const [clientes, setClientes] = useState<ClienteDTO[]>([]);
-  const [tarefasAbertas, setTarefasAbertas] = useState(0);
-  const [emRevisao, setEmRevisao] = useState(0);
-  const [tarefasComIssue, setTarefasComIssue] = useState<TarefaDTO[]>([]);
+  const detalhe = useCarregamento(async () => {
+    const [projeto, pessoas, clientes, tarefas] = await Promise.all([
+      dados.projetos.obter(id),
+      dados.pessoas.listar(),
+      pode(usuario, 'clientes', 'so_frentes') ? dados.clientes.listar() : Promise.resolve([]),
+      pode(usuario, 'tarefas', 'ler') ? dados.tarefas.listar({ projetoId: id }) : Promise.resolve([]),
+    ]);
+    return { projeto, pessoas, clientes, tarefas };
+  }, [id]);
+  const acao = useAcao();
   const [aba, setAba] = useState<'geral' | 'quadro' | 'issues' | 'admin' | 'clientes' | 'repo'>('geral');
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const [marco, setMarco] = useState('');
   const [confirmar, setConfirmar] = useState(false);
-  const [erro, setErro] = useState('');
   const [importando, setImportando] = useState(false);
   const [avisoImportar, setAvisoImportar] = useState('');
   const edita = pode(usuario, 'projetos', 'editar');
 
-  async function carregar() {
-    const atual = await api<ProjetoDTO>(`/projetos/${id}`);
-    setProjeto(atual);
-    setPessoas((await api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100')).data);
-    if (pode(usuario, 'clientes', 'so_frentes')) setClientes((await api<Pagina<ClienteDTO>>('/clientes?limite=100')).data);
-    if (pode(usuario, 'tarefas', 'ler')) {
-      const quadro = await api<Pagina<TarefaDTO>>(`/tarefas?projetoId=${id}&limite=100`);
-      setTarefasAbertas(quadro.data.filter((item) => item.coluna !== 'feito').length);
-      setEmRevisao(quadro.data.filter((item) => item.coluna === 'revisao').length);
-      setTarefasComIssue(quadro.data.filter((item) => item.githubIssueNumero != null));
-    }
-  }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, [id]);
-
-  const ligados = useMemo(() => clientes.filter((item) => projeto?.clienteIds.includes(item.id)), [clientes, projeto]);
-  const nomeDe = (usuarioId: string) => pessoas.find((pessoa) => pessoa.id === usuarioId)?.nome.split(' ')[0] ?? 'pessoa removida';
+  const projeto = detalhe.dados?.projeto ?? null;
+  const pessoas: UsuarioDTO[] = detalhe.dados?.pessoas ?? [];
+  const clientes: ClienteDTO[] = detalhe.dados?.clientes ?? [];
+  const tarefas: TarefaDTO[] = detalhe.dados?.tarefas ?? [];
+  const tarefasAbertas = tarefas.filter((item) => item.coluna !== 'feito').length;
+  const emRevisao = tarefas.filter((item) => item.coluna === 'revisao').length;
+  const tarefasComIssue = tarefas.filter((item) => item.githubIssueNumero != null);
+  const ligados = clientes.filter((item) => projeto?.clienteIds.includes(item.id));
+  const nomeDe = (usuarioId: string) => nomeDaPessoa(pessoas, usuarioId, 'curto');
+  const erro = detalhe.erro || acao.erro;
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
     if (!rascunho) return;
-    await api(`/projetos/${id}`, { method: 'PATCH', body: JSON.stringify({ ...corpoDe(rascunho), marcos: projeto?.marcos }) });
+    if (!await acao.executar(() => dados.projetos.atualizar(id, { ...corpoDe(rascunho), marcos: projeto?.marcos }), 'Não foi possível salvar o projeto')) return;
     setRascunho(null);
-    await carregar();
+    await detalhe.recarregar();
   }
 
   async function excluir() {
-    await api(`/projetos/${id}`, { method: 'DELETE' });
-    router.push('/projetos');
+    if (await acao.executar(() => dados.projetos.remover(id), 'Não foi possível excluir o projeto')) router.push('/projetos');
+    else setConfirmar(false);
   }
 
   async function importarIssues() {
     setImportando(true);
     setAvisoImportar('');
     try {
-      const resultado = await api<{ importadas: number; total: number }>('/tarefas/importar-issues', { method: 'POST', body: JSON.stringify({ projetoId: id }) });
+      const resultado = await dados.tarefas.importarIssues(id);
       setAvisoImportar(`${resultado.importadas} issue(s) nova(s) importada(s) de ${resultado.total} no repositório.`);
-      await carregar();
+      await detalhe.recarregar();
     } catch (falha) {
-      setAvisoImportar(falha instanceof Error ? falha.message : 'Não foi possível importar');
+      setAvisoImportar(mensagemDeErro(falha, 'Não foi possível importar'));
     } finally {
       setImportando(false);
     }
@@ -367,15 +370,16 @@ export function DetalheProjeto() {
   async function adicionarMarco(evento: FormEvent) {
     evento.preventDefault();
     if (!projeto || marco.trim().length < 2) return;
-    await api(`/projetos/${id}`, { method: 'PATCH', body: JSON.stringify({ marcos: [...projeto.marcos, { titulo: marco, status: 'em_andamento', detalhe: '' }] }) });
+    const marcos = [...projeto.marcos, { titulo: marco, status: 'em_andamento' as const, detalhe: '' }];
+    if (!await acao.executar(() => dados.projetos.atualizar(id, { marcos }), 'Não foi possível adicionar o marco')) return;
     setMarco('');
-    await carregar();
+    await detalhe.recarregar();
   }
 
   async function removerMarco(marcoId: string) {
     if (!projeto || !window.confirm('Excluir este marco?')) return;
-    await api(`/projetos/${id}`, { method: 'PATCH', body: JSON.stringify({ marcos: projeto.marcos.filter((item) => item.id !== marcoId) }) });
-    await carregar();
+    const marcos = projeto.marcos.filter((item) => item.id !== marcoId);
+    if (await acao.executar(() => dados.projetos.atualizar(id, { marcos }), 'Não foi possível excluir o marco')) await detalhe.recarregar();
   }
 
   if (!projeto) return <section className="pagina"><p>{erro || 'Carregando projeto…'}</p></section>;
@@ -393,6 +397,7 @@ export function DetalheProjeto() {
         </div>
       </div>
       <p><Link href="/projetos">← Projetos</Link></p>
+      {erro && !rascunho && <p className="erro">{erro}</p>}
       <div className="abas" style={{ margin: '12px 0' }}>
         {([['geral', 'Visão geral'], ['quadro', 'Quadro'], ['issues', 'Issues'], ['admin', 'Admin'], ['clientes', 'Clientes'], ['repo', 'Repo']] as const).map(([chave, nome]) => (
           <button key={chave} type="button" className={aba === chave ? 'ativo' : undefined} onClick={() => setAba(chave)}>{nome}</button>
@@ -488,7 +493,7 @@ export function DetalheProjeto() {
           {projeto.quadroUrl && <p><a href={projeto.quadroUrl}>GitHub Project</a></p>}
         </article>
       )}
-      {rascunho && <FormularioProjeto rascunho={rascunho} setRascunho={setRascunho} pessoas={pessoas} clientes={clientes} erro={erro} onSalvar={(e) => void salvar(e)} onFechar={() => setRascunho(null)} />}
+      {rascunho && <FormularioProjeto rascunho={rascunho} setRascunho={setRascunho} pessoas={pessoas} clientes={clientes} erro={acao.erro} onSalvar={(e) => void salvar(e)} onFechar={() => { acao.limparErro(); setRascunho(null); }} />}
       {confirmar && (
         <div className="modal-fundo">
           <div className="modal" role="alertdialog">

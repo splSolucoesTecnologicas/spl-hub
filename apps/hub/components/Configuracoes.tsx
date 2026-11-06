@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { CidadeGeo, GithubStatusDTO } from '@spl/contracts';
-import { api } from '@/lib/api';
+import { useState } from 'react';
+import type { CidadeGeo } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
+import { dados } from '@/lib/dados';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
 import { SeletorCidade } from './SeletorCidade';
 
 export function PaginaConfiguracoes() {
@@ -11,37 +13,26 @@ export function PaginaConfiguracoes() {
   const [nome, setNome] = useState(usuario.nome);
   const [editandoCidade, setEditandoCidade] = useState(false);
   const [aviso, setAviso] = useState('');
-  const [erro, setErro] = useState('');
-  const [github, setGithub] = useState<GithubStatusDTO | null>(null);
-
-  useEffect(() => {
-    void api<GithubStatusDTO>('/github/status').then(setGithub).catch(() => setGithub({ conectado: false, organizacao: null }));
-  }, []);
+  const acao = useAcao();
+  const erro = acao.erro;
+  const github = useCarregamento(() => dados.github.status(), []).dados ?? null;
 
   async function salvarNome() {
-    setErro('');
-    try {
-      await api(`/acesso/usuarios/${usuario.id}`, { method: 'PATCH', body: JSON.stringify({ nome }) });
-      await recarregar();
+    setAviso('');
+    if (await acao.executar(async () => { await dados.pessoas.atualizar(usuario.id, { nome }); await recarregar(); }, 'Não foi possível salvar')) {
       setAviso('Nome atualizado');
-    } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível salvar');
     }
   }
 
   async function escolherCidade(cidade: CidadeGeo) {
-    setErro('');
-    try {
-      await api(`/acesso/usuarios/${usuario.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ cidade: cidade.nome, uf: cidade.uf, latitude: cidade.lat, longitude: cidade.lon }),
-      });
+    setAviso('');
+    const salvo = await acao.executar(async () => {
+      await dados.pessoas.atualizar(usuario.id, { cidade: cidade.nome, uf: cidade.uf, latitude: cidade.lat, longitude: cidade.lon });
       await recarregar();
-      setEditandoCidade(false);
-      setAviso('Cidade atualizada');
-    } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível salvar');
-    }
+    }, 'Não foi possível salvar');
+    if (!salvo) return;
+    setEditandoCidade(false);
+    setAviso('Cidade atualizada');
   }
 
   return (

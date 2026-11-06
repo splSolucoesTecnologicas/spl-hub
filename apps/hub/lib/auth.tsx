@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type UsuarioDTO } from './api';
+import type { UsuarioDTO } from '@spl/contracts';
+import { dados } from './dados';
 import { apagarSessao, lerSessao } from './sessao';
 
 interface Sessao {
@@ -20,8 +21,8 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
   async function carregar() {
     const token = lerSessao();
     if (!token) { router.replace('/login'); return; }
-    try { setUsuario(await api<UsuarioDTO>('/acesso/eu')); }
-    catch { apagarSessao(); router.replace('/login'); }
+    try { setUsuario(await dados.acesso.eu()); }
+    catch { apagarSessao(); dados.limparCache(); router.replace('/login'); }
   }
 
   useEffect(() => { void carregar(); }, []);
@@ -33,8 +34,9 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
       usuario,
       recarregar: carregar,
       sair: async () => {
-        await api('/acesso/logout', { method: 'POST' }).catch(() => undefined);
+        await dados.acesso.sair().catch(() => undefined);
         apagarSessao();
+        dados.limparCache();
         router.replace('/login');
       },
     }}>

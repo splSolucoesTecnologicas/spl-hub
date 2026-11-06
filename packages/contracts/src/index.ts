@@ -167,6 +167,9 @@ export const AtualizarTarefaSchema = CriarTarefaSchema.partial().openapi('Atuali
 export const PaginaTarefasSchema = pagina(TarefaSchema).openapi('PaginaTarefas');
 export const PaginaUsuariosSchema = pagina(UsuarioSchema).openapi('PaginaUsuarios');
 
+export const ImportarIssuesSchema = z.object({ projetoId: z.string().uuid() }).openapi('ImportarIssues');
+export const ImportacaoIssuesSchema = z.object({ importadas: z.number().int(), total: z.number().int() }).openapi('ImportacaoIssues');
+
 export const SincronizacaoSchema = z.object({
   modo: z.enum(['fake', 'app', 'desligado']),
   sincronizadas: z.number(),

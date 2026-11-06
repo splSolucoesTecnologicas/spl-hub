@@ -1,10 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import type { DecisaoDTO, ObjetivoDTO } from '@spl/contracts';
-import { api, type NoticiaDTO, type Pagina } from '@/lib/api';
+import { FormEvent, useState } from 'react';
+import type { NoticiaDTO } from '@spl/contracts';
 import { useSessao } from '@/lib/auth';
+import { dados } from '@/lib/dados';
 import { pode } from '@/lib/pode';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
 
 export function Esboco({ titulo, kicker, texto }: { titulo: string; kicker: string; texto: string }) {
   return (
@@ -21,25 +23,36 @@ export function Esboco({ titulo, kicker, texto }: { titulo: string; kicker: stri
 
 export function PaginaSocios() {
   const { usuario } = useSessao();
-  const [decisoes, setDecisoes] = useState<DecisaoDTO[]>([]);
-  const [objetivos, setObjetivos] = useState<ObjetivoDTO[]>([]);
+  const sala = useCarregamento(async () => {
+    const [decisoes, objetivos] = await Promise.all([dados.decisoes.listar(), dados.objetivos.listar()]);
+    return { decisoes, objetivos };
+  }, []);
+  const acao = useAcao();
   const [titulo, setTitulo] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [progresso, setProgresso] = useState('0');
   const [periodo, setPeriodo] = useState('Q4 2026');
-  const [erro, setErro] = useState('');
   const edita = pode(usuario, 'socios', 'editar');
+  const { decisoes = [], objetivos = [] } = sala.dados ?? {};
+  const erro = sala.erro || acao.erro;
 
-  async function carregar() {
-    setDecisoes((await api<{ data: DecisaoDTO[] }>('/decisoes')).data);
-    setObjetivos((await api<{ data: ObjetivoDTO[] }>('/objetivos')).data);
+  async function mudar(operacao: () => Promise<unknown>, padrao: string): Promise<boolean> {
+    const feito = await acao.executar(operacao, padrao);
+    if (feito) await sala.recarregar();
+    return feito;
   }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, []);
 
-  async function excluir(caminho: string) {
+  async function excluir(operacao: () => Promise<void>) {
     if (!window.confirm('Excluir este item?')) return;
-    await api(caminho, { method: 'DELETE' });
-    await carregar();
+    await mudar(operacao, 'Não foi possível excluir');
+  }
+
+  async function criarDecisao() {
+    if (await mudar(() => dados.decisoes.criar({ titulo }), 'Não foi possível registrar a decisão')) setTitulo('');
+  }
+
+  async function criarObjetivo() {
+    if (await mudar(() => dados.objetivos.criar({ titulo: objetivo, progresso: Number(progresso), periodo }), 'Não foi possível criar o objetivo')) setObjetivo('');
   }
 
   return (
@@ -54,11 +67,11 @@ export function PaginaSocios() {
           {decisoes.map((item) => (
             <div className="decisao" key={item.id}>
               <span>{item.titulo}</span>
-              {edita && <button className="btn perigo" type="button" onClick={() => void excluir(`/decisoes/${item.id}`)}>Excluir</button>}
+              {edita && <button className="btn perigo" type="button" onClick={() => void excluir(() => dados.decisoes.remover(item.id))}>Excluir</button>}
             </div>
           ))}
           {edita && (
-            <form className="nova" onSubmit={(e) => { e.preventDefault(); void api('/decisoes', { method: 'POST', body: JSON.stringify({ titulo }) }).then(() => { setTitulo(''); return carregar(); }); }}>
+            <form className="nova" onSubmit={(e) => { e.preventDefault(); void criarDecisao(); }}>
               <input className="campo" placeholder="Nova decisão" value={titulo} onChange={(e) => setTitulo(e.target.value)} required />
               <button className="btn" type="submit">Adicionar</button>
             </form>
@@ -73,14 +86,14 @@ export function PaginaSocios() {
               <div className="barra"><i style={{ width: `${item.progresso}%` }} /></div>
               {edita && (
                 <div className="linha">
-                  <input className="campo" type="number" min={0} max={100} defaultValue={item.progresso} onBlur={(e) => void api(`/objetivos/${item.id}`, { method: 'PATCH', body: JSON.stringify({ progresso: Number(e.target.value) }) }).then(carregar)} />
-                  <button className="btn perigo" type="button" onClick={() => void excluir(`/objetivos/${item.id}`)}>Excluir</button>
+                  <input className="campo" type="number" min={0} max={100} defaultValue={item.progresso} onBlur={(e) => { const valor = Number(e.target.value); void mudar(() => dados.objetivos.atualizar(item.id, { progresso: valor }), 'Não foi possível atualizar o progresso'); }} />
+                  <button className="btn perigo" type="button" onClick={() => void excluir(() => dados.objetivos.remover(item.id))}>Excluir</button>
                 </div>
               )}
             </div>
           ))}
           {edita && (
-            <form className="nova" onSubmit={(e) => { e.preventDefault(); void api('/objetivos', { method: 'POST', body: JSON.stringify({ titulo: objetivo, progresso: Number(progresso), periodo }) }).then(() => { setObjetivo(''); return carregar(); }); }}>
+            <form className="nova" onSubmit={(e) => { e.preventDefault(); void criarObjetivo(); }}>
               <input className="campo" placeholder="Novo objetivo" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} required />
               <input className="campo" placeholder="Período" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
               <input className="campo" type="number" min={0} max={100} value={progresso} onChange={(e) => setProgresso(e.target.value)} />
@@ -94,24 +107,34 @@ export function PaginaSocios() {
 }
 
 export function PaginaBlog() {
-  const [noticias, setNoticias] = useState<NoticiaDTO[]>([]);
+  const blog = useCarregamento(() => dados.blog.todas(), []);
+  const acao = useAcao();
   const [titulo, setTitulo] = useState('');
   const [resumo, setResumo] = useState('');
   const [corpo, setCorpo] = useState('');
-  const [erro, setErro] = useState('');
   const [editando, setEditando] = useState<NoticiaDTO | null>(null);
   const [excluindo, setExcluindo] = useState<NoticiaDTO | null>(null);
+  const noticias = blog.dados ?? [];
+  const erro = blog.erro || acao.erro;
 
-  async function carregar() {
-    setNoticias((await api<Pagina<NoticiaDTO>>('/blog/admin')).data);
+  async function mudar(operacao: () => Promise<unknown>, padrao: string): Promise<boolean> {
+    const feito = await acao.executar(operacao, padrao);
+    if (feito) await blog.recarregar();
+    return feito;
   }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, []);
 
   async function publicar(evento: FormEvent) {
     evento.preventDefault();
-    await api('/blog/admin', { method: 'POST', body: JSON.stringify({ titulo, resumo, corpo, publicar: true }) });
+    if (!await mudar(() => dados.blog.criar({ titulo, resumo, corpo, publicar: true }), 'Não foi possível publicar')) return;
     setTitulo(''); setResumo(''); setCorpo('');
-    await carregar();
+  }
+
+  async function salvarEdicao(noticia: NoticiaDTO) {
+    if (await mudar(() => dados.blog.atualizar(noticia.id, { titulo: noticia.titulo, resumo: noticia.resumo, corpo: noticia.corpo }), 'Não foi possível salvar')) setEditando(null);
+  }
+
+  async function excluir(noticia: NoticiaDTO) {
+    if (await mudar(() => dados.blog.remover(noticia.id), 'Não foi possível excluir')) setExcluindo(null);
   }
 
   return (
@@ -134,8 +157,8 @@ export function PaginaBlog() {
               <strong>{noticia.titulo}</strong> {noticia.publicada ? <span className="chip green">publicada</span> : <span className="chip">rascunho</span>}
               <p className="aviso">{noticia.resumo}</p>
               <div className="linha">
-                {!noticia.publicada && <button className="btn" type="button" onClick={() => void api(`/blog/admin/${noticia.id}/publicar`, { method: 'POST' }).then(carregar)}>Publicar</button>}
-                {noticia.publicada && <button className="btn fantasma" type="button" onClick={() => void api(`/blog/admin/${noticia.id}/despublicar`, { method: 'POST' }).then(carregar)}>Despublicar</button>}
+                {!noticia.publicada && <button className="btn" type="button" onClick={() => void mudar(() => dados.blog.publicar(noticia.id), 'Não foi possível publicar')}>Publicar</button>}
+                {noticia.publicada && <button className="btn fantasma" type="button" onClick={() => void mudar(() => dados.blog.despublicar(noticia.id), 'Não foi possível despublicar')}>Despublicar</button>}
                 <button className="btn fantasma" type="button" onClick={() => setEditando(noticia)}>Editar</button>
                 <button className="btn perigo" type="button" onClick={() => setExcluindo(noticia)}>Excluir</button>
               </div>
@@ -144,7 +167,7 @@ export function PaginaBlog() {
         </div>
       </div>
       {editando && (
-        <form className="modal-fundo" onSubmit={(e) => { e.preventDefault(); void api(`/blog/admin/${editando.id}`, { method: 'PATCH', body: JSON.stringify({ titulo: editando.titulo, resumo: editando.resumo, corpo: editando.corpo }) }).then(() => { setEditando(null); return carregar(); }); }}>
+        <form className="modal-fundo" onSubmit={(e) => { e.preventDefault(); void salvarEdicao(editando); }}>
           <div className="modal">
             <h2>Editar notícia</h2>
             <input className="campo" value={editando.titulo} onChange={(e) => setEditando({ ...editando, titulo: e.target.value })} />
@@ -160,7 +183,7 @@ export function PaginaBlog() {
             <h2>Excluir notícia</h2>
             <p>Excluir “{excluindo.titulo}”? Se estava publicada, a landing deixa de recebê-la no próximo build.</p>
             <div className="linha">
-              <button className="btn perigo" type="button" onClick={() => void api(`/blog/admin/${excluindo.id}`, { method: 'DELETE' }).then(() => { setExcluindo(null); return carregar(); })}>Excluir</button>
+              <button className="btn perigo" type="button" onClick={() => void excluir(excluindo)}>Excluir</button>
               <button className="btn fantasma" type="button" onClick={() => setExcluindo(null)}>Cancelar</button>
             </div>
           </div>

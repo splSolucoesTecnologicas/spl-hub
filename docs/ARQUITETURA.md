@@ -30,5 +30,8 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 8. Listas paginadas por cursor: `{ data, nextCursor }`.
 9. Variáveis de ambiente só são lidas em `src/configuracao.ts`. O resto recebe valores já validados; o que deixaria a API rodando errado em silêncio impede a subida, e o que só desliga uma integração vira aviso no log.
 
+## Hub
+As telas pedem dados a `apps/hub/lib/dados.ts` pelo nome do recurso: rotas, paginação por cursor, conferência com os schemas de `@spl/contracts` e cache de pessoas e clientes ficam ali. O transporte é o seam: HTTP em produção, em memória nos testes (`pnpm --filter @spl/hub test`). Carga e erro passam por `useCarregamento` e `useAcao`.
+
 ## Testes
 Domínio e casos de uso sem I/O. Integração com `app.inject`. Postgres real só se `TEST_DATABASE_URL` estiver definida — o padrão da suíte é o adapter em memória.

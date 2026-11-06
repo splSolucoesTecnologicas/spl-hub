@@ -2,8 +2,8 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type UsuarioDTO } from '@/lib/api';
 import { asset } from '@/lib/base';
+import { dados, mensagemDeErro } from '@/lib/dados';
 import { gravarSessao } from '@/lib/sessao';
 
 export default function LoginPage() {
@@ -18,19 +18,14 @@ export default function LoginPage() {
     evento.preventDefault();
     setErro('');
     try {
-      if (!desafio) {
-        const resposta = await api<{ requer2fa: boolean; desafio?: string; token?: string; usuario?: UsuarioDTO }>('/acesso/login', {
-          method: 'POST', body: JSON.stringify({ email, senha }),
-        });
-        if (resposta.requer2fa && resposta.desafio) { setDesafio(resposta.desafio); return; }
-        gravarSessao(resposta.token ?? '');
-      } else {
-        const resposta = await api<{ token: string }>('/acesso/login/totp', { method: 'POST', body: JSON.stringify({ desafio, codigo }) });
-        gravarSessao(resposta.token);
-      }
+      const resposta = desafio ? await dados.acesso.confirmarTotp({ desafio, codigo }) : await dados.acesso.entrar({ email, senha });
+      if (resposta.requer2fa && resposta.desafio) { setDesafio(resposta.desafio); return; }
+      if (!resposta.token) throw new Error('A API não devolveu a sessão');
+      gravarSessao(resposta.token);
+      dados.limparCache();
       router.replace('/');
     } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível entrar');
+      setErro(mensagemDeErro(falha, 'Não foi possível entrar'));
     }
   }
 

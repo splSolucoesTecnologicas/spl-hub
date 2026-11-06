@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { AtualizarTarefaSchema, CriarTarefaSchema, type TarefaDTO } from '@spl/contracts';
+import { AtualizarTarefaSchema, CriarTarefaSchema, ImportarIssuesSchema, type TarefaDTO } from '@spl/contracts';
 import type { CasosDeUsoAcesso } from '../../../../acesso/application/use-cases.js';
 import { lerToken } from '../../../../acesso/adapters/in/http/acesso-routes.js';
 import type { Tarefa } from '../../../domain/tarefa.js';
@@ -56,8 +56,9 @@ export function tarefasRoutes(casos: CasosDeUsoTarefas, acesso: CasosDeUsoAcesso
       return { ...resultado, em: resultado.em.toISOString() };
     });
 
-    app.post<{ Body: { projetoId: string } }>('/tarefas/importar-issues', async (req) => {
-      return casos.importarIssuesDoProjeto(await atorDe(req), req.body.projetoId);
+    app.post('/tarefas/importar-issues', async (req) => {
+      const { projetoId } = ImportarIssuesSchema.parse(req.body);
+      return casos.importarIssuesDoProjeto(await atorDe(req), projetoId);
     });
   };
 }

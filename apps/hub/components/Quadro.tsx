@@ -1,9 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import type { GithubStatusDTO, TarefaDTO, UsuarioDTO } from '@spl/contracts';
-import { api, type Pagina } from '@/lib/api';
+import { FormEvent, useState } from 'react';
+import type { TarefaDTO } from '@spl/contracts';
 import { COLUNAS } from '@/lib/colunas';
+import { dados, primeiroNome } from '@/lib/dados';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
 
 const PRODUTO: Record<TarefaDTO['produto'], { nome: string; classe: string }> = {
   thumdra: { nome: 'Thumdra', classe: 'blue' }, corujuris: { nome: 'Corujuris', classe: 'purple' }, spl: { nome: 'SPL', classe: 'grey' },
@@ -28,69 +30,70 @@ function tempoRelativo(iso: string | null): string | null {
   return `há ${Math.floor(h / 24)}d`;
 }
 
-export function Quadro({ projetoId, embutido = false }: { projetoId?: string; embutido?: boolean }) {
+interface QuadroProps {
+  projetoId?: string;
+  embutido?: boolean;
+}
+
+export function Quadro({ projetoId, embutido = false }: QuadroProps) {
   const [filtro, setFiltro] = useState<'minhas' | 'de_olho' | 'todas'>('todas');
-  const [tarefas, setTarefas] = useState<TarefaDTO[]>([]);
-  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
-  const [github, setGithub] = useState<GithubStatusDTO | null>(null);
+  const quadro = useCarregamento(() => dados.tarefas.listar({ filtro, projetoId }), [filtro, projetoId]);
+  const pessoas = useCarregamento(() => dados.pessoas.listar(), []).dados ?? [];
+  const github = useCarregamento(() => (embutido ? Promise.resolve(null) : dados.github.status()), [embutido]).dados ?? null;
+  const acao = useAcao();
   const [criando, setCriando] = useState(false);
   const [titulo, setTitulo] = useState('');
   const [editando, setEditando] = useState<TarefaDTO | null>(null);
   const [excluindo, setExcluindo] = useState<TarefaDTO | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
-  const [erro, setErro] = useState('');
-
-  async function carregar(proximo = filtro) {
-    const query = new URLSearchParams({ filtro: proximo, limite: '100' });
-    if (projetoId) query.set('projetoId', projetoId);
-    const pagina = await api<Pagina<TarefaDTO>>(`/tarefas?${query.toString()}`);
-    setTarefas(pagina.data);
-  }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, [filtro, projetoId]);
-  useEffect(() => { void api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100').then((pagina) => setPessoas(pagina.data)).catch(() => setPessoas([])); }, []);
-  useEffect(() => {
-    if (embutido) return;
-    void api<GithubStatusDTO>('/github/status').then(setGithub).catch(() => setGithub({ conectado: false, organizacao: null }));
-  }, [embutido]);
+  const tarefas = quadro.dados ?? [];
 
   async function mover(id: string, coluna: TarefaDTO['coluna']) {
-    setTarefas((lista) => lista.map((tarefa) => tarefa.id === id ? { ...tarefa, coluna } : tarefa));
-    await api(`/tarefas/${id}`, { method: 'PATCH', body: JSON.stringify({ coluna }) });
+    quadro.definir((lista) => lista?.map((tarefa) => (tarefa.id === id ? { ...tarefa, coluna } : tarefa)));
+    // Desfaz o movimento otimista se a API recusar.
+    if (!await acao.executar(() => dados.tarefas.atualizar(id, { coluna }), 'Não foi possível mover a tarefa')) await quadro.recarregar();
   }
   async function criar(evento: FormEvent) {
     evento.preventDefault();
-    if (titulo.trim().length < 3) return;
-    await api('/tarefas', { method: 'POST', body: JSON.stringify({ titulo, produto: 'hub', projetoId: projetoId ?? null }) });
+    if (!await acao.executar(() => dados.tarefas.criar({ titulo, produto: 'hub', projetoId: projetoId ?? null }), 'Não foi possível criar a tarefa')) return;
     setTitulo('');
     setCriando(false);
-    await carregar();
+    await quadro.recarregar();
   }
   async function salvarEdicao(evento: FormEvent) {
     evento.preventDefault();
     if (!editando) return;
-    await api(`/tarefas/${editando.id}`, { method: 'PATCH', body: JSON.stringify({ titulo: editando.titulo }) });
+    if (!await acao.executar(() => dados.tarefas.atualizar(editando.id, { titulo: editando.titulo }), 'Não foi possível salvar a tarefa')) return;
     setEditando(null);
-    await carregar();
+    await quadro.recarregar();
   }
   async function excluir() {
     if (!excluindo) return;
-    await api(`/tarefas/${excluindo.id}`, { method: 'DELETE' });
+    if (!await acao.executar(() => dados.tarefas.remover(excluindo.id), 'Não foi possível excluir a tarefa')) return;
     setExcluindo(null);
-    await carregar();
+    await quadro.recarregar();
   }
   async function sincronizar() {
     setSincronizando(true);
     try {
-      await api('/tarefas/sincronizar', { method: 'POST' });
-      await carregar();
+      if (await acao.executar(() => dados.tarefas.sincronizar(), 'Não foi possível sincronizar')) await quadro.recarregar();
     } finally {
       setSincronizando(false);
     }
+  }
+  function fecharModais() {
+    acao.limparErro();
+    setCriando(false);
+    setTitulo('');
+    setEditando(null);
+    setExcluindo(null);
   }
 
   const ultimaSync = tarefas.reduce<string | null>((maior, tarefa) => (!maior || (tarefa.sincronizadaEm && tarefa.sincronizadaEm > maior) ? tarefa.sincronizadaEm : maior), null);
   const temExemplo = tarefas.some((tarefa) => tarefa.exemplo);
   const pessoaDe = (id: string | null) => pessoas.find((pessoa) => pessoa.id === id);
+  const modalAberto = criando || editando != null || excluindo != null;
+  const erro = quadro.erro || (modalAberto ? '' : acao.erro);
 
   return (
     <section className={embutido ? undefined : 'pagina'}>
@@ -120,7 +123,7 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
         {embutido && <button className="btn fantasma" type="button" onClick={() => setCriando(true)} style={{ marginLeft: 'auto' }}>+ Nova tarefa</button>}
       </div>
       {erro && <p className="erro">{erro}</p>}
-      {tarefas.length === 0 && <p className="aviso">Nenhuma tarefa neste quadro.</p>}
+      {!quadro.carregando && tarefas.length === 0 && <p className="aviso">Nenhuma tarefa neste quadro.</p>}
       <div className="colunas">
         {COLUNAS.map((coluna) => {
           const itens = tarefas.filter((tarefa) => tarefa.coluna === coluna.id);
@@ -129,6 +132,7 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
               <h2>{coluna.nome} {itens.length}</h2>
               {itens.map((tarefa) => {
                 const produto = PRODUTO[tarefa.produto];
+                const responsavel = pessoaDe(tarefa.responsavelId);
                 return (
                   <article key={tarefa.id} className="cartao" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', tarefa.id)}>
                     <b>{tarefa.titulo}</b>
@@ -142,10 +146,10 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
                       {tarefa.pullRequest && <span className="chip blue">PR {tarefa.pullRequest}</span>}
                       {tarefa.atrasada && tarefa.prazo && <span className="atrasada">Atrasada {new Date(tarefa.prazo).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
                       {!tarefa.atrasada && tarefa.coluna === 'feito' && <span className="chip green">{new Date(tarefa.atualizadaEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>}
-                      {pessoaDe(tarefa.responsavelId) && (
-                        <span className="responsavel-mini" title={pessoaDe(tarefa.responsavelId)!.nome}>
-                          <i>{pessoaDe(tarefa.responsavelId)!.nome[0]}</i>
-                          {pessoaDe(tarefa.responsavelId)!.nome.split(' ')[0]}
+                      {responsavel && (
+                        <span className="responsavel-mini" title={responsavel.nome}>
+                          <i>{responsavel.nome[0]}</i>
+                          {primeiroNome(responsavel.nome)}
                         </span>
                       )}
                       <span className="cartao-acoes">
@@ -164,10 +168,11 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
         <div className="modal-fundo">
           <form className="modal" onSubmit={(e) => void criar(e)}>
             <h2>Nova tarefa</h2>
+            {acao.erro && <p className="erro">{acao.erro}</p>}
             <label>Título<input className="campo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="O que precisa ser feito" required minLength={3} autoFocus /></label>
             <div className="linha">
-              <button className="btn" type="submit">Criar</button>
-              <button className="btn fantasma" type="button" onClick={() => { setCriando(false); setTitulo(''); }}>Cancelar</button>
+              <button className="btn" type="submit" disabled={acao.executando}>Criar</button>
+              <button className="btn fantasma" type="button" onClick={fecharModais}>Cancelar</button>
             </div>
           </form>
         </div>
@@ -176,10 +181,11 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
         <div className="modal-fundo">
           <form className="modal" onSubmit={(e) => void salvarEdicao(e)}>
             <h2>Editar tarefa</h2>
+            {acao.erro && <p className="erro">{acao.erro}</p>}
             <label>Título<input className="campo" value={editando.titulo} onChange={(e) => setEditando({ ...editando, titulo: e.target.value })} required /></label>
             <div className="linha">
-              <button className="btn" type="submit">Salvar</button>
-              <button className="btn fantasma" type="button" onClick={() => setEditando(null)}>Cancelar</button>
+              <button className="btn" type="submit" disabled={acao.executando}>Salvar</button>
+              <button className="btn fantasma" type="button" onClick={fecharModais}>Cancelar</button>
             </div>
           </form>
         </div>
@@ -188,10 +194,11 @@ export function Quadro({ projetoId, embutido = false }: { projetoId?: string; em
         <div className="modal-fundo">
           <div className="modal" role="alertdialog">
             <h2>Excluir tarefa</h2>
+            {acao.erro && <p className="erro">{acao.erro}</p>}
             <p>Excluir "{excluindo.titulo}"? Esta ação não desfaz.</p>
             <div className="linha">
-              <button className="btn perigo" type="button" onClick={() => void excluir()}>Excluir</button>
-              <button className="btn fantasma" type="button" onClick={() => setExcluindo(null)}>Cancelar</button>
+              <button className="btn perigo" type="button" disabled={acao.executando} onClick={() => void excluir()}>Excluir</button>
+              <button className="btn fantasma" type="button" onClick={fecharModais}>Cancelar</button>
             </div>
           </div>
         </div>

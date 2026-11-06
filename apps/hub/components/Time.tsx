@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { CidadeGeo, Nivel, Permissoes, UsuarioDTO } from '@spl/contracts';
-import { api, type AuditoriaDTO, type Pagina, type SolicitacaoAcessoDTO, type TarefaDTO } from '@/lib/api';
 import { useSessao } from '@/lib/auth';
+import { dados } from '@/lib/dados';
+import { useAcao } from '@/lib/useAcao';
+import { useCarregamento } from '@/lib/useCarregamento';
 import { SeletorCidade } from './SeletorCidade';
 
 const LINHAS: { id: keyof Permissoes; nome: string }[] = [
@@ -20,27 +22,19 @@ const AREAS = ['dev', 'marketing', 'administracao', 'comercial', 'financeiro', '
 
 export function ListaTime() {
   const { usuario } = useSessao();
-  const [pessoas, setPessoas] = useState<UsuarioDTO[]>([]);
+  const time = useCarregamento(() => dados.pessoas.listar(), []);
+  const acao = useAcao();
   const [aberto, setAberto] = useState(false);
-  const [erro, setErro] = useState('');
   const [form, setForm] = useState({ nome: '', email: '', senha: '', vinculo: 'colaborador' as 'socio' | 'colaborador', area: 'dev' as UsuarioDTO['area'], cidade: '', uf: '', admin: false });
-
-  async function carregar() {
-    setPessoas((await api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100')).data);
-  }
-  useEffect(() => { void carregar().catch((falha: Error) => setErro(falha.message)); }, []);
+  const pessoas = time.dados ?? [];
+  const erro = acao.erro || (aberto ? '' : time.erro);
 
   async function criar(evento: FormEvent) {
     evento.preventDefault();
-    setErro('');
-    try {
-      await api('/acesso/usuarios', { method: 'POST', body: JSON.stringify({ ...form, cidade: form.cidade || null, uf: form.uf || null }) });
-      setAberto(false);
-      setForm({ nome: '', email: '', senha: '', vinculo: 'colaborador', area: 'dev', cidade: '', uf: '', admin: false });
-      await carregar();
-    } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível adicionar');
-    }
+    if (!await acao.executar(() => dados.pessoas.criar({ ...form, cidade: form.cidade || null, uf: form.uf || null }), 'Não foi possível adicionar')) return;
+    setAberto(false);
+    setForm({ nome: '', email: '', senha: '', vinculo: 'colaborador', area: 'dev', cidade: '', uf: '', admin: false });
+    await time.recarregar();
   }
 
   return (
@@ -53,7 +47,7 @@ export function ListaTime() {
         {usuario.admin && <button className="btn" type="button" onClick={() => setAberto(true)}>Adicionar pessoa</button>}
       </div>
       {erro && !aberto && <p className="erro">{erro}</p>}
-      {pessoas.length === 0 && <div className="vazio"><h2>Ninguém no time</h2><p className="aviso">O primeiro acesso é o admin inicial. As outras pessoas entram por aqui.</p></div>}
+      {!time.carregando && pessoas.length === 0 && <div className="vazio"><h2>Ninguém no time</h2><p className="aviso">O primeiro acesso é o admin inicial. As outras pessoas entram por aqui.</p></div>}
       <div className="time-lista">
         {pessoas.map((pessoa) => (
           <Link key={pessoa.id} className="painel" href={`/time/${pessoa.id}`}>
@@ -90,7 +84,7 @@ export function ListaTime() {
             <p className="aviso">A senha inicial é o primeiro acesso. O ponto verde no mapa usa a cidade e a UF.</p>
             <div className="linha">
               <button className="btn" type="submit">Adicionar</button>
-              <button className="btn fantasma" type="button" onClick={() => setAberto(false)}>Cancelar</button>
+              <button className="btn fantasma" type="button" onClick={() => { acao.limparErro(); setAberto(false); }}>Cancelar</button>
             </div>
           </form>
         </div>
@@ -103,25 +97,34 @@ export function PerfilTime() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { usuario: eu } = useSessao();
+  const perfil = useCarregamento(async () => {
+    const [pessoas, tarefas, pedidos, auditoria] = await Promise.all([
+      dados.pessoas.listar(),
+      dados.tarefas.listar(),
+      dados.acesso.solicitacoes(),
+      eu.admin ? dados.acesso.auditoria() : Promise.resolve([]),
+    ]);
+    return {
+      pessoa: pessoas.find((item) => item.id === id) ?? null,
+      tarefas: tarefas.filter((tarefa) => tarefa.responsavelId === id && tarefa.coluna !== 'feito'),
+      pedidos: pedidos.filter((item) => item.usuarioId === id),
+      auditoria,
+    };
+  }, [id]);
+  const acao = useAcao();
+  // Cópia editável: as mudanças só vão para a API em "Salvar alterações".
   const [pessoa, setPessoa] = useState<UsuarioDTO | null>(null);
-  const [tarefas, setTarefas] = useState<TarefaDTO[]>([]);
-  const [pedidos, setPedidos] = useState<SolicitacaoAcessoDTO[]>([]);
-  const [auditoria, setAuditoria] = useState<AuditoriaDTO[]>([]);
   const [aviso, setAviso] = useState('');
   const [confirmar, setConfirmar] = useState(false);
   const [editandoCidade, setEditandoCidade] = useState(false);
+  useEffect(() => { setPessoa(perfil.dados?.pessoa ?? null); }, [perfil.dados]);
+  const { tarefas = [], pedidos = [], auditoria = [] } = perfil.dados ?? {};
+  const mensagem = acao.erro || aviso;
 
-  async function carregar() {
-    const pagina = await api<Pagina<UsuarioDTO>>('/acesso/usuarios?limite=100');
-    setPessoa(pagina.data.find((item) => item.id === id) ?? null);
-    const quadro = await api<Pagina<TarefaDTO>>('/tarefas?limite=100');
-    setTarefas(quadro.data.filter((tarefa) => tarefa.responsavelId === id && tarefa.coluna !== 'feito'));
-    setPedidos((await api<{ data: SolicitacaoAcessoDTO[] }>('/acesso/solicitacoes')).data.filter((item) => item.usuarioId === id));
-    if (eu.admin) setAuditoria((await api<{ data: AuditoriaDTO[] }>('/acesso/auditoria')).data);
+  if (!pessoa) {
+    const motivo = perfil.erro || (perfil.dados && !perfil.dados.pessoa ? 'Pessoa não encontrada.' : 'Carregando perfil…');
+    return <section className="pagina"><p>{motivo}</p></section>;
   }
-  useEffect(() => { void carregar().catch((falha: Error) => setAviso(falha.message)); }, [id]);
-
-  if (!pessoa) return <section className="pagina"><p>{aviso || 'Carregando perfil…'}</p></section>;
 
   function patch(parcial: Partial<UsuarioDTO>) { setPessoa({ ...pessoa!, ...parcial }); }
 
@@ -131,17 +134,24 @@ export function PerfilTime() {
   }
 
   async function salvar() {
-    const atualizado = await api<UsuarioDTO>(`/acesso/usuarios/${pessoa!.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ nome: pessoa!.nome, vinculo: pessoa!.vinculo, area: pessoa!.area, cidade: pessoa!.cidade, uf: pessoa!.uf, latitude: pessoa!.latitude, longitude: pessoa!.longitude, admin: pessoa!.admin, frentes: pessoa!.frentes, permissoes: pessoa!.permissoes, ativo: pessoa!.ativo }),
-    });
-    setPessoa(atualizado);
-    setAviso('Alterações salvas');
+    const atual = pessoa!;
+    setAviso('');
+    const salvo = await acao.executar(async () => {
+      setPessoa(await dados.pessoas.atualizar(atual.id, {
+        nome: atual.nome, vinculo: atual.vinculo, area: atual.area, cidade: atual.cidade, uf: atual.uf, latitude: atual.latitude, longitude: atual.longitude,
+        admin: atual.admin, frentes: atual.frentes, permissoes: atual.permissoes, ativo: atual.ativo,
+      }));
+    }, 'Não foi possível salvar');
+    if (salvo) setAviso('Alterações salvas');
   }
 
-  async function decidir(pedidoId: string, acao: 'autorizar' | 'recusar') {
-    await api(`/acesso/solicitacoes/${pedidoId}/${acao}`, { method: 'POST' });
-    await carregar();
+  async function decidir(pedidoId: string, decisao: 'autorizar' | 'recusar') {
+    if (await acao.executar(() => dados.acesso.decidirSolicitacao(pedidoId, decisao), 'Não foi possível registrar a decisão')) await perfil.recarregar();
+  }
+
+  async function excluir() {
+    if (await acao.executar(() => dados.pessoas.remover(pessoa!.id), 'Não foi possível excluir')) router.push('/time');
+    else setConfirmar(false);
   }
 
   return (
@@ -215,14 +225,14 @@ export function PerfilTime() {
           {eu.admin && <label><span>Ativo</span><input type="checkbox" checked={pessoa.ativo} onChange={(e) => patch({ ativo: e.target.checked })} /></label>}
           {eu.admin && <button className="btn" type="button" onClick={() => void salvar()}>Salvar alterações</button>}
           {eu.admin && eu.id !== pessoa.id && <button className="btn perigo" type="button" onClick={() => setConfirmar(true)}>Excluir pessoa</button>}
-          {aviso && <p>{aviso}</p>}
+          {mensagem && <p className={acao.erro ? 'erro' : undefined}>{mensagem}</p>}
           {confirmar && (
             <div className="modal-fundo">
               <div className="modal" role="alertdialog">
                 <h2>Excluir pessoa</h2>
                 <p>Excluir {pessoa.nome}? Ninguém exclui a si mesmo nem o último admin.</p>
                 <div className="linha">
-                  <button className="btn perigo" type="button" onClick={() => void api(`/acesso/usuarios/${pessoa.id}`, { method: 'DELETE' }).then(() => router.push('/time')).catch((falha: Error) => setAviso(falha.message))}>Excluir</button>
+                  <button className="btn perigo" type="button" onClick={() => void excluir()}>Excluir</button>
                   <button className="btn fantasma" type="button" onClick={() => setConfirmar(false)}>Cancelar</button>
                 </div>
               </div>
