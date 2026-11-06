@@ -85,7 +85,7 @@ O workflow de Pages e o `CNAME` continuam. Esta etapa não desliga nada.
 4. Só então desligar o GitHub Pages, para o domínio não disputar com o A.
 5. Notícia nova pede rebuild da imagem da landing no Dokploy. O dispatch para o Pages pode sair.
 
-`GITHUB_ADAPTER=fake` (padrão) não chama o GitHub. `GITHUB_ADAPTER=http` escolhe o adapter real, que ainda responde 501.
+`GITHUB_ADAPTER` aceita `fake`, `app` e `desligado`. Sem valor, a API usa `fake` com persistência em memória e `desligado` com Prisma: o fake inventa números de issue e não pode gravá-los num banco de verdade. `app` exige `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID` e a chave (`GITHUB_APP_PRIVATE_KEY_PATH`, `GITHUB_APP_PRIVATE_KEY_BASE64` ou `GITHUB_APP_PRIVATE_KEY`). Se faltar algo, a API sobe com a integração desligada e diz o motivo no log de boot. Persistência, porta ou `SEED_EXEMPLO` inválidos impedem a subida.
 
 ## O que ainda é esboço
 

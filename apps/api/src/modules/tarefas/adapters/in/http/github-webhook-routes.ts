@@ -44,7 +44,7 @@ export function eventoDoPayload(nomeDoEvento: string | undefined, payload: unkno
 
 interface DepsWebhook {
   tarefas: CasosDeUsoTarefas;
-  webhookSecret: string | undefined;
+  webhookSecret: string | null;
 }
 
 export function githubWebhookRoutes(deps: DepsWebhook) {

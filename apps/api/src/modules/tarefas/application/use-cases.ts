@@ -68,7 +68,9 @@ export function criarCasosDeUsoTarefas(deps: { repo: TarefaRepository; github: G
       return {
         modo: resultado.modo,
         sincronizadas: resultado.enviadas,
-        detalhes: `${resultado.enviadas} enviada(s) ao GitHub, ${resultado.semBoard} sem board vinculado, ${resultado.falhas} com falha.`,
+        detalhes: resultado.modo === 'desligado'
+          ? 'Integração com o GitHub desligada: nada foi enviado.'
+          : `${resultado.enviadas} enviada(s) ao GitHub, ${resultado.semBoard} sem board vinculado, ${resultado.falhas} com falha.`,
         em: relogio.agora(),
       };
     },

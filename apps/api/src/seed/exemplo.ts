@@ -1,4 +1,5 @@
 import type { Dependencias } from '../app.js';
+import type { Configuracao } from '../configuracao.js';
 import { SolicitacaoAcesso } from '../modules/acesso/domain/sessao.js';
 import { Usuario, permissoesPadrao, MODULOS, type Permissoes } from '../modules/acesso/domain/usuario.js';
 import { Tarefa } from '../modules/tarefas/domain/tarefa.js';
@@ -85,13 +86,12 @@ export async function semearExemplo(deps: Dependencias): Promise<void> {
   });
 }
 
-export async function garantirAdminInicial(deps: Dependencias): Promise<void> {
-  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
-  const senha = process.env.BOOTSTRAP_ADMIN_SENHA;
-  if (!email || !senha) return;
+export async function garantirAdminInicial(deps: Dependencias, adminInicial: Configuracao['adminInicial']): Promise<void> {
+  if (!adminInicial) return;
+  const { email, senha, nome } = adminInicial;
   if (await deps.usuarios.buscarPorEmail(email)) return;
   const usuario = Usuario.criar({
-    id: deps.ids.novo(), nome: process.env.BOOTSTRAP_ADMIN_NOME?.trim() || 'Admin SPL', email, senhaHash: await deps.senhas.hash(senha),
+    id: deps.ids.novo(), nome, email, senhaHash: await deps.senhas.hash(senha),
     vinculo: 'socio', area: 'dev', admin: true, exemplo: false, criadoEm: deps.relogio.agora(),
   });
   await deps.usuarios.salvar(usuario);

@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
+import type { Configuracao } from './configuracao.js';
 import type { TarefaRepository } from './modules/tarefas/application/ports/tarefa-repository.js';
 import type { GitHubProjetos } from './modules/tarefas/application/ports/github-projetos.js';
 import type { AvisoPaginas, NoticiaRepository } from './modules/blog/application/use-cases.js';
@@ -41,11 +42,12 @@ export interface Dependencias {
   ids: GeradorId;
 }
 
-export function buildApp(deps: Dependencias) {
+export type OpcoesDoApp = Pick<Configuracao, 'corsOrigens' | 'githubWebhookSecret'>;
+
+export function buildApp(deps: Dependencias, opcoes: OpcoesDoApp) {
   const app = Fastify({ logger: false });
   app.setErrorHandler(errorHandler);
-  const origens = (process.env.CORS_ORIGINS ?? 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080').split(',').map((origem) => origem.trim()).filter(Boolean);
-  app.register(cors, { origin: origens, allowedHeaders: ['content-type', 'authorization', 'idempotency-key'] });
+  app.register(cors, { origin: opcoes.corsOrigens, allowedHeaders: ['content-type', 'authorization', 'idempotency-key'] });
   app.get('/health', async () => ({ ok: true, servico: 'spl-api' }));
 
   const acesso = criarCasosDeUsoAcesso(deps);
@@ -54,7 +56,7 @@ export function buildApp(deps: Dependencias) {
   const operacao = criarCasosDeUsoOperacao(deps);
   app.register(acessoRoutes(acesso));
   app.register(tarefasRoutes(tarefas, acesso, () => deps.relogio.agora()));
-  app.register(githubWebhookRoutes({ tarefas, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET }));
+  app.register(githubWebhookRoutes({ tarefas, webhookSecret: opcoes.githubWebhookSecret }));
   app.register(blogRoutes(blog, acesso));
   app.register(operacaoRoutes(operacao, acesso));
   app.register(thumdraRoutes(deps.thumdra, acesso));

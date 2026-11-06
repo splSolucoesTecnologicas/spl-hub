@@ -9,7 +9,7 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 | Aplicação | `modules/*/application` | domínio, suas portas, `shared/application` | adapters, frameworks, banco |
 | Adapters de entrada | `adapters/in/*` | casos de uso, `@spl/contracts`, Fastify | Prisma |
 | Adapters de saída | `adapters/out/*`, `integrations/*` | portas, domínio, libs de infra | rotas HTTP |
-| Composição | `src/app.ts`, `src/main.ts`, `src/seed` | tudo | — |
+| Composição | `src/app.ts`, `src/main.ts`, `src/configuracao.ts`, `src/seed` | tudo | — |
 
 ## Módulos deste corte
 - **acesso** — login e-mail + senha, TOTP, sessão, vínculo sócio/colaborador, área, permissões por módulo, auditoria.
@@ -17,7 +17,7 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 - **operacao** — clientes, projetos, decisões e objetivos. O Projeto guarda o `VinculoGithub` (repositório, board e mapa coluna ⇄ opção de status); a porta `CatalogoGithub` lista repositórios, boards e opções para a tela de edição.
 - **blog** — publicação autenticada e leitura pública (`GET /blog`, `GET /blog/:slug`) consumida pela landing.
 
-`integrations/github` tem os adapters do GitHub (App real e fake em memória), cada um atendendo `GitHubProjetos` e `CatalogoGithub`. `integrations/thumdra` segue o template: porta `ThumdraAdminClient`, fake e HTTP com client credentials em `/admin/v1`.
+`integrations/github` tem os adapters do GitHub (App real, fake em memória e desligado), cada um atendendo `GitHubProjetos` e `CatalogoGithub`. `integrations/thumdra` segue o template: porta `ThumdraAdminClient`, fake e HTTP com client credentials em `/admin/v1`.
 
 ## Regras
 1. Domínio valida invariantes e lança `ErroDeDominio`.
@@ -28,6 +28,7 @@ Monólito modular hexagonal em `apps/api`. As setas de dependência apontam para
 6. Thumdra e os outros produtos só entram por API, nunca pelo banco deles.
 7. Erros HTTP em `application/problem+json` (RFC 9457).
 8. Listas paginadas por cursor: `{ data, nextCursor }`.
+9. Variáveis de ambiente só são lidas em `src/configuracao.ts`. O resto recebe valores já validados; o que deixaria a API rodando errado em silêncio impede a subida, e o que só desliga uma integração vira aviso no log.
 
 ## Testes
 Domínio e casos de uso sem I/O. Integração com `app.inject`. Postgres real só se `TEST_DATABASE_URL` estiver definida — o padrão da suíte é o adapter em memória.

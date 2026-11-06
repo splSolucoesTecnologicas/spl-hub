@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { buildApp, type Dependencias } from './app.js';
+import { descreverConfiguracao, ErroDeConfiguracao, lerConfiguracao, type Configuracao, type LeituraDaConfiguracao } from './configuracao.js';
 import { senhas, tokens, totp } from './modules/acesso/adapters/out/crypto.js';
 import { InMemoryAuditoriaRepository, InMemoryDesafioRepository, InMemorySessaoRepository, InMemorySolicitacaoRepository, InMemoryUsuarioRepository } from './modules/acesso/adapters/out/in-memory-acesso.js';
 import { InMemoryTarefaRepository } from './modules/tarefas/adapters/out/in-memory-tarefa-repository.js';
 import { FakeGitHubProjetos } from './integrations/github/fake-github-projetos.js';
 import { AppGitHubProjetos } from './integrations/github/app-github-projetos.js';
+import { GitHubDesligado } from './integrations/github/github-desligado.js';
 import { InMemoryNoticiaRepository } from './modules/blog/adapters/out/in-memory-noticia-repository.js';
 import { FakeThumdraAdminClient } from './integrations/thumdra/fake-thumdra-admin-client.js';
 import { HttpThumdraAdminClient } from './integrations/thumdra/http-thumdra-admin-client.js';
@@ -14,64 +15,23 @@ import { AvisoPaginasGithub } from './modules/blog/adapters/out/aviso-paginas.js
 import { InMemoryClienteRepository, InMemoryDecisaoRepository, InMemoryObjetivoRepository, InMemoryProjetoRepository } from './modules/operacao/adapters/out/memoria.js';
 import { garantirAdminInicial, semearExemplo } from './seed/exemplo.js';
 
-function chavePrivadaGithub(): string | undefined {
-  if (process.env.GITHUB_APP_PRIVATE_KEY_PATH) {
-    try {
-      return readFileSync(process.env.GITHUB_APP_PRIVATE_KEY_PATH, 'utf8');
-    } catch (erro) {
-      console.error(`GITHUB_APP_PRIVATE_KEY_PATH configurado mas o arquivo não pôde ser lido (${process.env.GITHUB_APP_PRIVATE_KEY_PATH}): tentando as outras formas em seguida.`, erro);
-    }
-  }
-  // Base64 do .pem inteiro — formato mais robusto pra editores de env var que não
-  // lidam bem com valores multi-linha ou muito longos com caracteres especiais.
-  if (process.env.GITHUB_APP_PRIVATE_KEY_BASE64) {
-    return Buffer.from(process.env.GITHUB_APP_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
-  }
-  // Aceita a chave numa única linha, com \n literal no lugar das quebras reais.
-  return process.env.GITHUB_APP_PRIVATE_KEY?.includes('\\n')
-    ? process.env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : process.env.GITHUB_APP_PRIVATE_KEY;
-}
-
-function githubDe(): Dependencias['github'] {
-  const chavePrivada = chavePrivadaGithub();
-  console.log(
-    `github env: GITHUB_ADAPTER=${JSON.stringify(process.env.GITHUB_ADAPTER)} `
-    + `GITHUB_APP_ID=${process.env.GITHUB_APP_ID ? 'presente' : 'ausente'} `
-    + `GITHUB_APP_INSTALLATION_ID=${process.env.GITHUB_APP_INSTALLATION_ID ? 'presente' : 'ausente'} `
-    + `GITHUB_APP_PRIVATE_KEY_PATH=${process.env.GITHUB_APP_PRIVATE_KEY_PATH ? 'presente' : 'ausente'} `
-    + `GITHUB_APP_PRIVATE_KEY=${process.env.GITHUB_APP_PRIVATE_KEY ? `presente(${process.env.GITHUB_APP_PRIVATE_KEY.length} chars)` : 'ausente'} `
-    + `GITHUB_APP_PRIVATE_KEY_BASE64=${process.env.GITHUB_APP_PRIVATE_KEY_BASE64 ? `presente(${process.env.GITHUB_APP_PRIVATE_KEY_BASE64.length} chars)` : 'ausente'} `
-    + `chavePrivadaResolvida=${chavePrivada ? `${chavePrivada.length} chars` : 'nenhuma'}`,
-  );
-  if (process.env.GITHUB_ADAPTER === 'app' && process.env.GITHUB_APP_ID && chavePrivada && process.env.GITHUB_APP_INSTALLATION_ID) {
-    return new AppGitHubProjetos({
-      appId: process.env.GITHUB_APP_ID,
-      chavePrivada,
-      installationId: process.env.GITHUB_APP_INSTALLATION_ID,
-    });
-  }
+function githubDe(github: Configuracao['github']): Dependencias['github'] {
+  if (github.adapter === 'app') return new AppGitHubProjetos({ appId: github.appId, chavePrivada: github.chavePrivada, installationId: github.installationId });
+  if (github.adapter === 'desligado') return new GitHubDesligado(github.motivo);
   return new FakeGitHubProjetos();
 }
 
-function thumdraDe(): ThumdraAdminClient {
-  if (process.env.THUMDRA_ADMIN_URL && process.env.THUMDRA_CLIENT_ID && process.env.THUMDRA_CLIENT_SECRET) {
-    return new HttpThumdraAdminClient({
-      baseUrl: process.env.THUMDRA_ADMIN_URL, clientId: process.env.THUMDRA_CLIENT_ID,
-      clientSecret: process.env.THUMDRA_CLIENT_SECRET, scopes: process.env.THUMDRA_SCOPES ?? 'admin:read',
-    });
-  }
-  return new FakeThumdraAdminClient();
+function thumdraDe(thumdra: Configuracao['thumdra']): ThumdraAdminClient {
+  return thumdra ? new HttpThumdraAdminClient(thumdra) : new FakeThumdraAdminClient();
 }
 
-export async function criarDependencias(): Promise<Dependencias> {
+export async function criarDependencias(configuracao: Configuracao): Promise<Dependencias> {
   const comuns = {
-    senhas, totp, tokens, github: githubDe(), thumdra: thumdraDe(),
-    avisoPaginas: new AvisoPaginasGithub({ token: process.env.PAGES_DISPATCH_TOKEN, repositorio: process.env.PAGES_DISPATCH_REPOSITORIO }),
+    senhas, totp, tokens, github: githubDe(configuracao.github), thumdra: thumdraDe(configuracao.thumdra),
+    avisoPaginas: new AvisoPaginasGithub(configuracao.avisoPaginas ?? {}),
     relogio: { agora: () => new Date() }, ids: { novo: () => randomUUID() },
   };
-  const usarPrisma = process.env.PERSISTENCIA === 'prisma' || process.env.TAREFAS_REPO === 'prisma';
-  if (usarPrisma) {
+  if (configuracao.persistencia === 'prisma') {
     const { PrismaClient } = await import('@prisma/client');
     const { PrismaUsuarioRepository, PrismaSessaoRepository, PrismaDesafioRepository, PrismaSolicitacaoRepository, PrismaAuditoriaRepository } = await import('./modules/acesso/adapters/out/prisma-acesso.js');
     const { PrismaTarefaRepository } = await import('./modules/tarefas/adapters/out/prisma-tarefa-repository.js');
@@ -97,10 +57,23 @@ export async function criarDependencias(): Promise<Dependencias> {
   };
 }
 
-const deps = await criarDependencias();
-const semear = process.env.SEED_EXEMPLO === 'true' || (process.env.SEED_EXEMPLO !== 'false' && process.env.NODE_ENV !== 'production');
-if (semear) await semearExemplo(deps);
-await garantirAdminInicial(deps);
-const app = buildApp(deps);
-await app.listen({ port: Number(process.env.PORT ?? 3333), host: '0.0.0.0' });
-console.log(`API SPL em :${process.env.PORT ?? 3333} (github ${deps.github.modo})`);
+function lerOuEncerrar(): LeituraDaConfiguracao {
+  try {
+    return lerConfiguracao(process.env);
+  } catch (erro) {
+    if (!(erro instanceof ErroDeConfiguracao)) throw erro;
+    console.error(erro.message);
+    process.exit(1);
+  }
+}
+
+const { configuracao, avisos } = lerOuEncerrar();
+console.log(`Configuração: ${descreverConfiguracao(configuracao)}`);
+for (const aviso of avisos) console.warn(`Aviso de configuração: ${aviso}`);
+
+const deps = await criarDependencias(configuracao);
+if (configuracao.semearExemplo) await semearExemplo(deps);
+await garantirAdminInicial(deps, configuracao.adminInicial);
+const app = buildApp(deps, configuracao);
+await app.listen({ port: configuracao.porta, host: '0.0.0.0' });
+console.log(`API SPL em :${configuracao.porta} (github ${deps.github.modo})`);

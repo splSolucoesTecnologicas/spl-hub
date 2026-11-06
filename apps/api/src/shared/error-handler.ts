@@ -10,8 +10,7 @@ const STATUS: Record<string, number> = {
   codigo_invalido: 401,
   sem_permissao: 403,
   bloqueado: 429,
-  github_stub: 501,
-  github_nao_configurado: 501,
+  github_desligado: 503,
 };
 
 /** Converte erros em application/problem+json (RFC 9457). */

@@ -70,7 +70,7 @@ export function criarSincronizacaoGithub(deps: SincronizacaoGithubDeps) {
 
   async function enviarComVinculo(tarefa: Tarefa, vinculo: VinculoGithub | null): Promise<boolean> {
     const board = vinculo?.board;
-    if (!vinculo || !board) return false;
+    if (github.modo === 'desligado' || !vinculo || !board) return false;
     const { owner, repo } = vinculo;
     const estado = tarefa.coluna === 'feito' ? 'closed' : 'open';
     let issue: IssueGithub;
@@ -139,7 +139,7 @@ export function criarSincronizacaoGithub(deps: SincronizacaoGithubDeps) {
   return {
     modo: github.modo,
 
-    /** Envia a Tarefa já salva. Devolve false quando o Projeto não tem board mapeado. */
+    /** Envia a Tarefa já salva. Devolve false quando o Projeto não tem board mapeado ou a integração está desligada. */
     async enviar(tarefa: Tarefa): Promise<boolean> {
       return enviarComVinculo(tarefa, await vinculoDe(tarefa.projetoId));
     },
@@ -177,6 +177,7 @@ export function criarSincronizacaoGithub(deps: SincronizacaoGithubDeps) {
     async ressincronizar(): Promise<ResultadoRessincronizacao> {
       const cache = new Map<string, VinculoGithub | null>();
       const resultado: ResultadoRessincronizacao = { modo: github.modo, enviadas: 0, semBoard: 0, falhas: 0 };
+      if (github.modo === 'desligado') return resultado;
       for (const tarefa of await tarefas.listarTodas()) {
         try {
           if (await enviarComVinculo(tarefa, await vinculoDe(tarefa.projetoId, cache))) resultado.enviadas++;

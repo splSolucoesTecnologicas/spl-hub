@@ -3,6 +3,7 @@ import { criarSincronizacaoGithub, marcadorDaTarefa } from '../src/modules/taref
 import { InMemoryTarefaRepository } from '../src/modules/tarefas/adapters/out/in-memory-tarefa-repository.js';
 import { InMemoryProjetoRepository } from '../src/modules/operacao/adapters/out/memoria.js';
 import { FakeGitHubProjetos } from '../src/integrations/github/fake-github-projetos.js';
+import { GitHubDesligado } from '../src/integrations/github/github-desligado.js';
 import { Projeto } from '../src/modules/operacao/domain/projeto.js';
 import { Tarefa, type Coluna } from '../src/modules/tarefas/domain/tarefa.js';
 
@@ -75,6 +76,18 @@ describe('Sincronização com GitHub: saída', () => {
     expect(salva.githubIssueNumero).toBe(401);
     expect(await sync.enviar(salva)).toBe(true);
     expect(github.issues('spl', 'teste')).toHaveLength(1);
+  });
+
+  it('integração desligada não tenta enviar nem ressincronizar', async () => {
+    const tarefas = new InMemoryTarefaRepository();
+    const projetos = new InMemoryProjetoRepository();
+    await projetos.salvar(Projeto.criar({ id: 'proj1', nome: 'Com GitHub', tipo: 'produto', status: 'piloto', cor: '#4c8dff', agora: AGORA, repositorio: 'spl/teste', githubProjectNumero: 1, githubColunaMap: MAPA }));
+    const sync = criarSincronizacaoGithub({ tarefas, projetos, github: new GitHubDesligado('teste'), relogio: { agora: () => AGORA }, ids: { novo: () => 'x' } });
+    const tarefa = Tarefa.criar({ id: 'tarefa-1', titulo: 'Sem GitHub', agora: AGORA, projetoId: 'proj1' });
+    await tarefas.salvar(tarefa);
+    expect(await sync.enviar(tarefa)).toBe(false);
+    expect(await sync.ressincronizar()).toEqual({ modo: 'desligado', enviadas: 0, semBoard: 0, falhas: 0 });
+    await expect(sync.importarIssues('proj1')).rejects.toThrow(/desligada/);
   });
 
   it('ressincroniza só as tarefas de projeto com board', async () => {
